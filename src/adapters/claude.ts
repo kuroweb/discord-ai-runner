@@ -85,7 +85,7 @@ export class ClaudeAdapter implements AiAdapter {
       const timer = setTimeout(() => {
         proc.kill();
         reject(new Error('timeout'));
-      }, 120_000);
+      }, 300_000);
 
       proc.on('close', (code) => {
         clearTimeout(timer);
