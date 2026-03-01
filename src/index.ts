@@ -2,7 +2,6 @@ import 'dotenv/config';
 import { Client, Intents, Message } from 'discord.js';
 import { readFileSync, writeFileSync } from 'fs';
 import { createAdapter, isClaudeResult, type AiResult, type ClaudeResult } from './adapters';
-import { createWsBroadcaster, type WsBroadcaster } from './ws';
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 if (!DISCORD_TOKEN) throw new Error('DISCORD_TOKEN が設定されていません');
@@ -13,20 +12,6 @@ const EDIT_INTERVAL_MS = 1500;
 const STATE_FILE = '.state.json';
 
 const adapter = createAdapter(process.env.AI_ADAPTER ?? 'claude');
-const ws: WsBroadcaster = (() => {
-  try {
-    return createWsBroadcaster();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[ws] disabled: ${msg}`);
-    return {
-      sendStreamStarted: () => {},
-      sendStreamPartial: () => {},
-      sendStreamCompleted: () => {},
-      sendStreamError: () => {},
-    };
-  }
-})();
 
 const sessions = new Map<string, string>();      // threadId → session_id
 const activeThreads = new Set<string>();         // bot が管理するスレッドの ID
@@ -155,10 +140,8 @@ async function respond(
   prompt: string,
   sessionKey: string,
   revision: number,
-  requestId: string,
 ): Promise<void> {
   if (!isCurrentRevision(sessionKey, revision)) {
-    ws.sendStreamError(sessionKey, requestId, 'stale_request', { fatal: false });
     return;
   }
 
@@ -172,10 +155,6 @@ async function respond(
 
   const interval = setInterval(async () => {
     if (!isCurrentRevision(sessionKey, revision)) {
-      ws.sendStreamError(sessionKey, requestId, 'replaced_by_newer_request', {
-        fatal: false,
-        elapsedMs: Date.now() - startedAt,
-      });
       clearInterval(interval);
       return;
     }
@@ -190,26 +169,16 @@ async function respond(
   }, EDIT_INTERVAL_MS);
 
   try {
-    ws.sendStreamStarted(sessionKey, requestId, { sessionId });
     await thinking.edit(buildProgressMessage(Date.now() - startedAt, latestText));
     const result = await adapter.run(prompt, sessionId, (text) => {
       if (!isCurrentRevision(sessionKey, revision)) return;
-      const prev = latestText;
       latestText = text;
       dirty = true;
-      const delta = text.startsWith(prev) ? text.slice(prev.length) : text;
-      if (delta) {
-        ws.sendStreamPartial(sessionKey, requestId, delta);
-      }
     });
 
     clearInterval(interval);
 
     if (!isCurrentRevision(sessionKey, revision)) {
-      ws.sendStreamError(sessionKey, requestId, 'replaced_after_response', {
-        fatal: false,
-        elapsedMs: Date.now() - startedAt,
-      });
       await thinking.edit('[中断] 新しいメッセージまたはリセットにより、この応答は破棄されました');
       return;
     }
@@ -221,15 +190,10 @@ async function respond(
     threadUsage.set(sessionKey, result);
 
     await thinking.edit(truncate(buildCompletedMessage(result.result)));
-    ws.sendStreamCompleted(sessionKey, requestId, result.result, Date.now() - startedAt);
   } catch (err) {
     clearInterval(interval);
     const msg = err instanceof Error ? err.message : String(err);
     await thinking.edit(truncate(buildFailedMessage(msg)));
-    ws.sendStreamError(sessionKey, requestId, msg, {
-      fatal: true,
-      elapsedMs: Date.now() - startedAt,
-    });
   }
 }
 
@@ -260,7 +224,7 @@ client.on('messageCreate', async (message) => {
       return;
     }
 
-    if (prompt === '/status') {
+    if (prompt === '!status') {
       const stat = threadUsage.get(channel.id);
       if (!stat) {
         await message.reply('（このセッションはまだ利用データがありません）');
@@ -271,9 +235,8 @@ client.on('messageCreate', async (message) => {
     }
 
     const revision = nextThreadRevision(channel.id);
-    const requestId = `${channel.id}:${revision}`;
     await enqueueThreadTask(channel.id, async () => {
-      await respond(channel as { send(content: string): Promise<Message> }, prompt, channel.id, revision, requestId);
+      await respond(channel as { send(content: string): Promise<Message> }, prompt, channel.id, revision);
     });
     return;
   }
@@ -284,8 +247,8 @@ client.on('messageCreate', async (message) => {
   const prompt = message.content.replace(/<@!?\d+>/g, '').trim();
   if (!prompt) return;
 
-  if (prompt === '/status') {
-    await message.reply('スレッド内で `/status` を送ってください。');
+  if (prompt === '!status') {
+    await message.reply('スレッド内で `!status` を送ってください。');
     return;
   }
 
@@ -296,11 +259,10 @@ client.on('messageCreate', async (message) => {
 
   activeThreads.add(thread.id);
   const revision = nextThreadRevision(thread.id);
-  const requestId = `${thread.id}:${revision}`;
   saveState();
   await thread.send(truncate(`初回要望:\n${asQuote(prompt)}`));
   await enqueueThreadTask(thread.id, async () => {
-    await respond(thread, prompt, thread.id, revision, requestId);
+    await respond(thread, prompt, thread.id, revision);
   });
 });
 
