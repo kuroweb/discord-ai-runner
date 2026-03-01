@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.discord-ai-runner</string>
+  <string>com.discord-ai-runner-codex</string>
 
   <key>ProgramArguments</key>
   <array>
