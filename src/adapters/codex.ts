@@ -18,8 +18,7 @@ export class CodexAdapter implements AiAdapter {
       const proc = spawn('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
       let lineBuffer = '';
-      let streamText = '';   // 途中の agent_message を蓄積（onChunk 用）
-      let finalText = '';    // task_complete.last_agent_message
+      let streamText = '';   // agent_message を蓄積
       let sessionIdResult = '';
 
       proc.on('error', (err) => {
@@ -37,16 +36,13 @@ export class CodexAdapter implements AiAdapter {
           try {
             const event = JSON.parse(line);
 
-            if (event.type === 'session_meta') {
-              sessionIdResult = event.payload?.id ?? '';
-            } else if (event.type === 'event_msg') {
-              const p = event.payload ?? {};
-              if (p.type === 'agent_message' && p.message) {
-                streamText += (streamText ? '\n\n' : '') + p.message;
+            if (event.type === 'thread.started') {
+              sessionIdResult = event.thread_id ?? '';
+            } else if (event.type === 'item.completed' && event.item?.type === 'agent_message') {
+              const text = event.item.text ?? '';
+              if (text) {
+                streamText += (streamText ? '\n\n' : '') + text;
                 onChunk(streamText);
-              } else if (p.type === 'task_complete' && p.last_agent_message) {
-                finalText = p.last_agent_message;
-                onChunk(finalText);
               }
             }
           } catch {
@@ -69,7 +65,7 @@ export class CodexAdapter implements AiAdapter {
         console.log('[codex] 終了 code:', code);
         if (code === 0) {
           resolve({
-            result: finalText || streamText,
+            result: streamText,
             session_id: sessionIdResult,
           });
         } else {
