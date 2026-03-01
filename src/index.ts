@@ -1,15 +1,42 @@
 import 'dotenv/config';
 import { Client, Intents, Message } from 'discord.js';
 import { spawn } from 'child_process';
+import { readFileSync, writeFileSync } from 'fs';
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 if (!DISCORD_TOKEN) throw new Error('DISCORD_TOKEN が設定されていません');
 
 const DISCORD_MAX_LENGTH = 2000;
 const EDIT_INTERVAL_MS = 1500;
+const STATE_FILE = '.state.json';
 
 const sessions = new Map<string, string>();      // threadId → session_id
 const activeThreads = new Set<string>();         // bot が管理するスレッドの ID
+
+interface State {
+  activeThreads: string[];
+  sessions: Record<string, string>;
+}
+
+function loadState(): void {
+  try {
+    const data = readFileSync(STATE_FILE, 'utf-8');
+    const state: State = JSON.parse(data);
+    (state.activeThreads ?? []).forEach(id => activeThreads.add(id));
+    Object.entries(state.sessions ?? {}).forEach(([k, v]) => sessions.set(k, v));
+    console.log(`[state] 復元: threads=${activeThreads.size}, sessions=${sessions.size}`);
+  } catch {
+    // ファイルが存在しない場合は無視
+  }
+}
+
+function saveState(): void {
+  const state: State = {
+    activeThreads: [...activeThreads],
+    sessions: Object.fromEntries(sessions),
+  };
+  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+}
 interface ClaudeResult {
   result: string;
   session_id: string;
@@ -157,7 +184,10 @@ async function respond(
 
     clearInterval(interval);
 
-    if (claudeResult.session_id) sessions.set(sessionKey, claudeResult.session_id);
+    if (claudeResult.session_id) {
+      sessions.set(sessionKey, claudeResult.session_id);
+      saveState();
+    }
     threadUsage.set(sessionKey, claudeResult);
 
     await thinking.edit(truncate(claudeResult.result) || '（応答なし）');
@@ -188,6 +218,7 @@ client.on('messageCreate', async (message) => {
 
     if (prompt === '!reset') {
       sessions.delete(channel.id);
+      saveState();
       await message.reply('セッションをリセットしました。');
       return;
     }
@@ -227,6 +258,7 @@ client.on('messageCreate', async (message) => {
   });
 
   activeThreads.add(thread.id);
+  saveState();
   await respond(thread, prompt, thread.id);
 });
 
@@ -234,4 +266,5 @@ client.once('ready', (c) => {
   console.log(`✅ ${c.user.tag} として起動しました`);
 });
 
+loadState();
 client.login(DISCORD_TOKEN);
