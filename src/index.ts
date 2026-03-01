@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Client, Intents, Message } from 'discord.js';
 import { readFileSync, writeFileSync } from 'fs';
-import { createAdapter, isClaudeResult, type ClaudeResult } from './adapters';
+import { createAdapter, isClaudeResult, type AiResult, type ClaudeResult } from './adapters';
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 if (!DISCORD_TOKEN) throw new Error('DISCORD_TOKEN が設定されていません');
@@ -40,21 +40,28 @@ function saveState(): void {
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
-// Claude アダプター時のみ利用する統計情報（threadId → ClaudeResult）
-const threadUsage = new Map<string, ClaudeResult>();
+const threadUsage = new Map<string, AiResult>();
 
-function formatStatus(r: ClaudeResult): string {
-  const usedPct = r.context_window > 0
-    ? ((r.input_tokens / r.context_window) * 100).toFixed(1)
-    : '0.0';
-  const latency = (r.duration_api_ms / 1000).toFixed(1);
+function formatStatus(r: AiResult): string {
+  if (isClaudeResult(r)) {
+    const usedPct = r.context_window > 0
+      ? ((r.input_tokens / r.context_window) * 100).toFixed(1)
+      : '0.0';
+    const latency = (r.duration_api_ms / 1000).toFixed(1);
+    return [
+      '```',
+      `Current Session  (${r.model})`,
+      `  Context : ${r.input_tokens.toLocaleString()} / ${r.context_window.toLocaleString()} tokens (${usedPct}% used)`,
+      `  Output  : ${r.output_tokens.toLocaleString()} tokens`,
+      `  Latency : ${latency}s`,
+      '```',
+    ].join('\n');
+  }
 
   return [
     '```',
-    `Current Session  (${r.model})`,
-    `  Context : ${r.input_tokens.toLocaleString()} / ${r.context_window.toLocaleString()} tokens (${usedPct}% used)`,
-    `  Output  : ${r.output_tokens.toLocaleString()} tokens`,
-    `  Latency : ${latency}s`,
+    `  Input  : ${r.input_tokens?.toLocaleString() ?? '?'} tokens`,
+    `  Output : ${r.output_tokens?.toLocaleString() ?? '?'} tokens`,
     '```',
   ].join('\n');
 }
@@ -96,9 +103,7 @@ async function respond(
       sessions.set(sessionKey, result.session_id);
       saveState();
     }
-    if (isClaudeResult(result)) {
-      threadUsage.set(sessionKey, result);
-    }
+    threadUsage.set(sessionKey, result);
 
     await thinking.edit(truncate(result.result) || '（応答なし）');
   } catch (err) {

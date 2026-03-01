@@ -20,6 +20,8 @@ export class CodexAdapter implements AiAdapter {
       let lineBuffer = '';
       let streamText = '';   // agent_message を蓄積
       let sessionIdResult = '';
+      let inputTokens: number | undefined;
+      let outputTokens: number | undefined;
 
       proc.on('error', (err) => {
         console.error('[codex] spawn エラー:', err);
@@ -44,6 +46,9 @@ export class CodexAdapter implements AiAdapter {
                 streamText += (streamText ? '\n\n' : '') + text;
                 onChunk(streamText);
               }
+            } else if (event.type === 'turn.completed') {
+              inputTokens = event.usage?.input_tokens;
+              outputTokens = event.usage?.output_tokens;
             }
           } catch {
             // JSON パース失敗は無視
@@ -67,6 +72,8 @@ export class CodexAdapter implements AiAdapter {
           resolve({
             result: streamText,
             session_id: sessionIdResult,
+            input_tokens: inputTokens,
+            output_tokens: outputTokens,
           });
         } else {
           reject(new Error(`exit code ${code}`));
