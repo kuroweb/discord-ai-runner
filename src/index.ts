@@ -1,9 +1,6 @@
 import 'dotenv/config';
 import { Client, Intents, Message } from 'discord.js';
 import { spawn } from 'child_process';
-import { readdirSync, readFileSync, statSync } from 'fs';
-import { join } from 'path';
-import { homedir } from 'os';
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 if (!DISCORD_TOKEN) throw new Error('DISCORD_TOKEN が設定されていません');
@@ -26,51 +23,11 @@ interface ClaudeResult {
 // threadId → 最新のターン情報（コンテキスト使用率は累積ではなく最新値）
 const threadUsage = new Map<string, ClaudeResult>();
 
-function weeklyUsage(): { input: number; cache_read: number; cache_create: number; output: number; turns: number } {
-  const result = { input: 0, cache_read: 0, cache_create: 0, output: 0, turns: 0 };
-  const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-  weekStart.setHours(0, 0, 0, 0);
-
-  const projectsDir = join(homedir(), '.claude', 'projects');
-  try {
-    for (const proj of readdirSync(projectsDir)) {
-      const projPath = join(projectsDir, proj);
-      if (!statSync(projPath).isDirectory()) continue;
-
-      for (const file of readdirSync(projPath).filter(f => f.endsWith('.jsonl'))) {
-        const lines = readFileSync(join(projPath, file), 'utf-8').split('\n');
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const entry = JSON.parse(line);
-            if (entry.type !== 'assistant') continue;
-            if (new Date(entry.timestamp) < weekStart) continue;
-            const u = entry.message?.usage;
-            if (!u) continue;
-            result.input       += u.input_tokens ?? 0;
-            result.cache_read  += u.cache_read_input_tokens ?? 0;
-            result.cache_create += u.cache_creation_input_tokens ?? 0;
-            result.output      += u.output_tokens ?? 0;
-            result.turns++;
-          } catch { /* ignore malformed lines */ }
-        }
-      }
-    }
-  } catch { /* projects dir not accessible */ }
-  return result;
-}
-
-function formatUsage(r: ClaudeResult, w: ReturnType<typeof weeklyUsage>): string {
+function formatStatus(r: ClaudeResult): string {
   const usedPct = r.context_window > 0
     ? ((r.input_tokens / r.context_window) * 100).toFixed(1)
     : '0.0';
   const latency = (r.duration_api_ms / 1000).toFixed(1);
-
-  const totalWeekInput = w.input + w.cache_read + w.cache_create;
-  const cacheHitPct = totalWeekInput > 0
-    ? ((w.cache_read / totalWeekInput) * 100).toFixed(1)
-    : '0.0';
 
   return [
     '```',
@@ -78,11 +35,6 @@ function formatUsage(r: ClaudeResult, w: ReturnType<typeof weeklyUsage>): string
     `  Context : ${r.input_tokens.toLocaleString()} / ${r.context_window.toLocaleString()} tokens (${usedPct}% used)`,
     `  Output  : ${r.output_tokens.toLocaleString()} tokens`,
     `  Latency : ${latency}s`,
-    ``,
-    `Current Week`,
-    `  Turns   : ${w.turns}`,
-    `  Output  : ${w.output.toLocaleString()} tokens`,
-    `  Cache   : ${cacheHitPct}% hit rate`,
     '```',
   ].join('\n');
 }
@@ -240,14 +192,13 @@ client.on('messageCreate', async (message) => {
       return;
     }
 
-    if (prompt === '/usage') {
+    if (prompt === '/status') {
       const stat = threadUsage.get(channel.id);
-      const w = weeklyUsage();
       if (!stat) {
         await message.reply('（このセッションはまだ利用データがありません）');
         return;
       }
-      await message.reply(formatUsage(stat, w));
+      await message.reply(formatStatus(stat));
       return;
     }
 
@@ -261,8 +212,8 @@ client.on('messageCreate', async (message) => {
   const prompt = message.content.replace(/<@!?\d+>/g, '').trim();
   if (!prompt) return;
 
-  if (prompt === '/usage') {
-    await message.reply('スレッド内で `/usage` を送ってください。');
+  if (prompt === '/status') {
+    await message.reply('スレッド内で `/status` を送ってください。');
     return;
   }
 
