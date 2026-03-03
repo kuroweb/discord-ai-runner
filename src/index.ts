@@ -121,6 +121,12 @@ function buildCompletedMessage(text: string): string {
   return `✅完了\n\n${text}`;
 }
 
+function buildInterruptedMessage(text: string): string {
+  const status = '⚠️中断:新しいメッセージまたはリセットにより、この応答は破棄されました';
+  if (!text.trim()) return status;
+  return `${status}\n\n${text}`;
+}
+
 function buildFailedMessage(message: string): string {
   return `❌失敗:${message}`;
 }
@@ -179,7 +185,7 @@ async function respond(
     clearInterval(interval);
 
     if (!isCurrentRevision(sessionKey, revision)) {
-      await thinking.edit('⚠️中断:新しいメッセージまたはリセットにより、この応答は破棄されました');
+      await thinking.edit(truncate(buildInterruptedMessage(latestText)));
       return;
     }
 
