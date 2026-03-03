@@ -112,17 +112,17 @@ function asQuote(text: string): string {
 
 function buildProgressMessage(elapsedMs: number, latestText: string): string {
   const elapsedSec = Math.floor(elapsedMs / 1000);
-  if (!latestText) return `[処理中] ${elapsedSec}s 経過`;
-  return `[処理中] ${elapsedSec}s 経過\n\n${latestText}`;
+  if (!latestText) return `🔄処理中${elapsedSec}s`;
+  return `🔄処理中${elapsedSec}s\n\n${latestText}`;
 }
 
 function buildCompletedMessage(text: string): string {
-  if (!text.trim()) return '[完了] （応答なし）';
-  return `[完了]\n\n${text}`;
+  if (!text.trim()) return '✅完了（応答なし）';
+  return `✅完了\n\n${text}`;
 }
 
 function buildFailedMessage(message: string): string {
-  return `[失敗] ${message}`;
+  return `❌失敗:${message}`;
 }
 
 function buildThreadName(): string {
@@ -146,7 +146,7 @@ async function respond(
   }
 
   const sessionId = sessions.get(sessionKey);
-  const thinking = await sendTarget.send('[処理中] 開始します');
+  const thinking = await sendTarget.send('🔄処理中開始します');
 
   let latestText = '';
   let dirty = false;
@@ -179,7 +179,7 @@ async function respond(
     clearInterval(interval);
 
     if (!isCurrentRevision(sessionKey, revision)) {
-      await thinking.edit('[中断] 新しいメッセージまたはリセットにより、この応答は破棄されました');
+      await thinking.edit('⚠️中断:新しいメッセージまたはリセットにより、この応答は破棄されました');
       return;
     }
 
