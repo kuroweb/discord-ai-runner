@@ -13,8 +13,8 @@ export function isClaudeResult(r: AiResult): r is ClaudeResult {
   return 'model' in r;
 }
 
-export class ClaudeAdapter implements AiAdapter {
-  run(
+export function createClaudeAdapter(): AiAdapter {
+  async function run(
     prompt: string,
     sessionId: string | undefined,
     onChunk: (text: string) => void,
@@ -98,4 +98,6 @@ export class ClaudeAdapter implements AiAdapter {
       });
     });
   }
+
+  return { run };
 }

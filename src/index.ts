@@ -1,207 +1,16 @@
 import 'dotenv/config';
-import { Client, Intents, Message } from 'discord.js';
-import { readFileSync, writeFileSync } from 'fs';
-import { createAdapter, isClaudeResult, type AiResult, type ClaudeResult } from './adapters';
+import { Client, Intents } from 'discord.js';
+import { createAdapter } from './adapters';
+import { registerMessageHandler } from './bot/discord-handler';
+import { createBotState } from './bot/state';
+import { createThreadTaskManager } from './bot/thread-task-manager';
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 if (!DISCORD_TOKEN) throw new Error('DISCORD_TOKEN が設定されていません');
 
-const DISCORD_MAX_LENGTH = 2000;
-const DISCORD_THREAD_NAME_MAX_LENGTH = 100;
-const EDIT_INTERVAL_MS = 1500;
-const STATE_FILE = '.state.json';
-
 const adapter = createAdapter(process.env.AI_ADAPTER ?? 'claude');
-
-const sessions = new Map<string, string>();      // threadId → session_id
-const activeThreads = new Set<string>();         // bot が管理するスレッドの ID
-const threadQueues = new Map<string, Promise<void>>();
-const threadRevisions = new Map<string, number>();
-
-interface State {
-  activeThreads: string[];
-  sessions: Record<string, string>;
-}
-
-function loadState(): void {
-  try {
-    const data = readFileSync(STATE_FILE, 'utf-8');
-    const state: State = JSON.parse(data);
-    (state.activeThreads ?? []).forEach(id => activeThreads.add(id));
-    Object.entries(state.sessions ?? {}).forEach(([k, v]) => sessions.set(k, v));
-    console.log(`[state] 復元: threads=${activeThreads.size}, sessions=${sessions.size}`);
-  } catch {
-    // ファイルが存在しない場合は無視
-  }
-}
-
-function saveState(): void {
-  const state: State = {
-    activeThreads: [...activeThreads],
-    sessions: Object.fromEntries(sessions),
-  };
-  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-}
-
-const threadUsage = new Map<string, AiResult>();
-
-function nextThreadRevision(threadId: string): number {
-  const next = (threadRevisions.get(threadId) ?? 0) + 1;
-  threadRevisions.set(threadId, next);
-  return next;
-}
-
-function isCurrentRevision(threadId: string, revision: number): boolean {
-  return (threadRevisions.get(threadId) ?? 0) === revision;
-}
-
-async function enqueueThreadTask(threadId: string, task: () => Promise<void>): Promise<void> {
-  const prev = threadQueues.get(threadId) ?? Promise.resolve();
-  const run = prev
-    .catch(() => {})
-    .then(task);
-
-  threadQueues.set(
-    threadId,
-    run.finally(() => {
-      if (threadQueues.get(threadId) === run) {
-        threadQueues.delete(threadId);
-      }
-    }),
-  );
-
-  await run;
-}
-
-function formatStatus(r: AiResult): string {
-  if (isClaudeResult(r)) {
-    const usedPct = r.context_window > 0
-      ? ((r.input_tokens / r.context_window) * 100).toFixed(1)
-      : '0.0';
-    const latency = (r.duration_api_ms / 1000).toFixed(1);
-    return [
-      '```',
-      `Current Session  (${r.model})`,
-      `  Context : ${r.input_tokens.toLocaleString()} / ${r.context_window.toLocaleString()} tokens (${usedPct}% used)`,
-      `  Output  : ${r.output_tokens.toLocaleString()} tokens`,
-      `  Latency : ${latency}s`,
-      '```',
-    ].join('\n');
-  }
-
-  return [
-    '```',
-    `  Input  : ${r.input_tokens?.toLocaleString() ?? '?'} tokens`,
-    `  Output : ${r.output_tokens?.toLocaleString() ?? '?'} tokens`,
-    '```',
-  ].join('\n');
-}
-
-function truncate(text: string): string {
-  return text.length > DISCORD_MAX_LENGTH
-    ? text.slice(0, DISCORD_MAX_LENGTH - 10) + '\n…(省略)'
-    : text;
-}
-
-function asQuote(text: string): string {
-  return text
-    .split('\n')
-    .map(line => `> ${line}`)
-    .join('\n');
-}
-
-function buildProgressMessage(elapsedMs: number, latestText: string): string {
-  const elapsedSec = Math.floor(elapsedMs / 1000);
-  if (!latestText) return `🔄処理中${elapsedSec}s`;
-  return `🔄処理中${elapsedSec}s\n\n${latestText}`;
-}
-
-function buildCompletedMessage(text: string): string {
-  if (!text.trim()) return '✅完了（応答なし）';
-  return `✅完了\n\n${text}`;
-}
-
-function buildInterruptedMessage(text: string): string {
-  const status = '⚠️中断:新しいメッセージまたはリセットにより、この応答は破棄されました';
-  if (!text.trim()) return status;
-  return `${status}\n\n${text}`;
-}
-
-function buildFailedMessage(message: string): string {
-  return `❌失敗:${message}`;
-}
-
-function buildThreadName(): string {
-  const now = new Date().toLocaleString('ja-JP', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  return `CodexBot ${now}`.slice(0, DISCORD_THREAD_NAME_MAX_LENGTH);
-}
-
-async function respond(
-  sendTarget: { send(content: string): Promise<Message> },
-  prompt: string,
-  sessionKey: string,
-  revision: number,
-): Promise<void> {
-  if (!isCurrentRevision(sessionKey, revision)) {
-    return;
-  }
-
-  const sessionId = sessions.get(sessionKey);
-  const thinking = await sendTarget.send('🔄処理中開始します');
-
-  let latestText = '';
-  let dirty = false;
-  const startedAt = Date.now();
-  let lastRenderedSec = -1;
-
-  const interval = setInterval(async () => {
-    if (!isCurrentRevision(sessionKey, revision)) {
-      clearInterval(interval);
-      return;
-    }
-
-    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
-    if (!dirty && elapsedSec === lastRenderedSec) return;
-    dirty = false;
-    lastRenderedSec = elapsedSec;
-    try {
-      await thinking.edit(truncate(buildProgressMessage(Date.now() - startedAt, latestText)));
-    } catch {}
-  }, EDIT_INTERVAL_MS);
-
-  try {
-    await thinking.edit(buildProgressMessage(Date.now() - startedAt, latestText));
-    const result = await adapter.run(prompt, sessionId, (text) => {
-      if (!isCurrentRevision(sessionKey, revision)) return;
-      latestText = text;
-      dirty = true;
-    });
-
-    clearInterval(interval);
-
-    if (!isCurrentRevision(sessionKey, revision)) {
-      await thinking.edit(truncate(buildInterruptedMessage(latestText)));
-      return;
-    }
-
-    if (result.session_id) {
-      sessions.set(sessionKey, result.session_id);
-      saveState();
-    }
-    threadUsage.set(sessionKey, result);
-
-    await thinking.edit(truncate(buildCompletedMessage(result.result)));
-  } catch (err) {
-    clearInterval(interval);
-    const msg = err instanceof Error ? err.message : String(err);
-    await thinking.edit(truncate(buildFailedMessage(msg)));
-  }
-}
+const state = createBotState('.state.json');
+const taskManager = createThreadTaskManager();
 
 const client = new Client({
   intents: [
@@ -211,70 +20,11 @@ const client = new Client({
   ],
 });
 
-client.on('messageCreate', async (message) => {
-  if (message.author.bot) return;
+registerMessageHandler({ client, adapter, state, taskManager });
 
-  const channel = message.channel;
-
-  // アクティブなスレッド内のメッセージ（メンション不要）
-  if (activeThreads.has(channel.id)) {
-    const prompt = message.content.trim();
-    if (!prompt) return;
-
-    if (prompt === '!reset') {
-      nextThreadRevision(channel.id);
-      sessions.delete(channel.id);
-      threadUsage.delete(channel.id);
-      saveState();
-      await message.reply('セッションをリセットしました。');
-      return;
-    }
-
-    if (prompt === '!status') {
-      const stat = threadUsage.get(channel.id);
-      if (!stat) {
-        await message.reply('（このセッションはまだ利用データがありません）');
-        return;
-      }
-      await message.reply(formatStatus(stat));
-      return;
-    }
-
-    const revision = nextThreadRevision(channel.id);
-    await enqueueThreadTask(channel.id, async () => {
-      await respond(channel as { send(content: string): Promise<Message> }, prompt, channel.id, revision);
-    });
-    return;
-  }
-
-  // チャンネルでの @mention → スレッドを作成して応答
-  if (!message.mentions.has(client.user!)) return;
-
-  const prompt = message.content.replace(/<@!?\d+>/g, '').trim();
-  if (!prompt) return;
-
-  if (prompt === '!status') {
-    await message.reply('スレッド内で `!status` を送ってください。');
-    return;
-  }
-
-  const thread = await message.startThread({
-    name: buildThreadName(),
-    autoArchiveDuration: 1440,
-  });
-
-  activeThreads.add(thread.id);
-  const revision = nextThreadRevision(thread.id);
-  saveState();
-  await thread.send(truncate(`初回要望:\n${asQuote(prompt)}`));
-  await enqueueThreadTask(thread.id, async () => {
-    await respond(thread, prompt, thread.id, revision);
-  });
+client.once('ready', (readyClient) => {
+  console.log(`✅ ${readyClient.user.tag} として起動しました`);
 });
 
-client.once('ready', (c) => {
-  console.log(`✅ ${c.user.tag} として起動しました`);
-});
-
-loadState();
+state.load();
 client.login(DISCORD_TOKEN);

@@ -1,8 +1,8 @@
 import { spawn } from 'child_process';
 import type { AiAdapter, AiResult } from './types';
 
-export class CodexAdapter implements AiAdapter {
-  run(
+export function createCodexAdapter(): AiAdapter {
+  async function run(
     prompt: string,
     sessionId: string | undefined,
     onChunk: (text: string) => void,
@@ -81,4 +81,6 @@ export class CodexAdapter implements AiAdapter {
       });
     });
   }
+
+  return { run };
 }

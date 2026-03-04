@@ -1,10 +1,10 @@
 import type { AiAdapter } from './types';
-import { ClaudeAdapter } from './claude';
-import { CodexAdapter } from './codex';
+import { createClaudeAdapter } from './claude';
+import { createCodexAdapter } from './codex';
 
 export function createAdapter(name: string): AiAdapter {
-  if (name === 'codex') return new CodexAdapter();
-  return new ClaudeAdapter();
+  if (name === 'codex') return createCodexAdapter();
+  return createClaudeAdapter();
 }
 
 export type { AiResult, AiAdapter } from './types';
