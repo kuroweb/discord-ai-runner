@@ -10,5 +10,6 @@ export interface AiAdapter {
     prompt: string,
     sessionId: string | undefined,
     onChunk: (text: string) => void,
+    signal?: AbortSignal,
   ): Promise<AiResult>;
 }

@@ -6,6 +6,7 @@ export function createCodexAdapter(): AiAdapter {
     prompt: string,
     sessionId: string | undefined,
     onChunk: (text: string) => void,
+    signal?: AbortSignal,
   ): Promise<AiResult> {
     return new Promise((resolve, reject) => {
       // 新規: codex exec --json --dangerously-bypass-approvals-and-sandbox "prompt"
@@ -16,6 +17,12 @@ export function createCodexAdapter(): AiAdapter {
 
       console.log('[codex] 実行開始:', args.join(' '));
       const proc = spawn('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+      signal?.addEventListener('abort', () => {
+        clearTimeout(timer);
+        proc.kill();
+        reject(new DOMException('aborted', 'AbortError'));
+      }, { once: true });
 
       let lineBuffer = '';
       let streamText = '';   // agent_message を蓄積

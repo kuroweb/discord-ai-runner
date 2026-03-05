@@ -18,6 +18,7 @@ export function createClaudeAdapter(): AiAdapter {
     prompt: string,
     sessionId: string | undefined,
     onChunk: (text: string) => void,
+    signal?: AbortSignal,
   ): Promise<ClaudeResult> {
     return new Promise((resolve, reject) => {
       const args = sessionId
@@ -26,6 +27,12 @@ export function createClaudeAdapter(): AiAdapter {
 
       console.log('[claude] 実行開始:', args.join(' '));
       const proc = spawn('claude', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+      signal?.addEventListener('abort', () => {
+        clearTimeout(timer);
+        proc.kill();
+        reject(new DOMException('aborted', 'AbortError'));
+      }, { once: true });
 
       let lineBuffer = '';
       let accumulated = '';

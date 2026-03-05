@@ -42,6 +42,7 @@ export async function respond(
   let dirty = false;
   const startedAt = Date.now();
   let lastRenderedSec = -1;
+  const abortController = new AbortController();
 
   const interval = setInterval(async () => {
     if (!taskManager.isCurrentRevision(sessionKey, revision)) {
@@ -66,10 +67,13 @@ export async function respond(
     await thinking.edit(buildProgressMessage(Date.now() - startedAt, latestText));
 
     const result = await adapter.run(prompt, sessionId, (text) => {
-      if (!taskManager.isCurrentRevision(sessionKey, revision)) return;
+      if (!taskManager.isCurrentRevision(sessionKey, revision)) {
+        abortController.abort();
+        return;
+      }
       latestText = text;
       dirty = true;
-    });
+    }, abortController.signal);
 
     clearInterval(interval);
 
@@ -87,6 +91,10 @@ export async function respond(
     await thinking.edit(truncate(buildCompletedMessage(result.result)));
   } catch (error) {
     clearInterval(interval);
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      await thinking.edit(truncate(buildInterruptedMessage(latestText)));
+      return;
+    }
     const message = error instanceof Error ? error.message : String(error);
     await thinking.edit(truncate(buildFailedMessage(message)));
   }
