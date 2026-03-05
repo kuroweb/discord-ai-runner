@@ -51,6 +51,12 @@ export function buildCompletedMessage(text: string): string {
   return `✅完了\n\n${text}`;
 }
 
+export function buildInterruptedMessage(text: string): string {
+  const status = '⚠️中断:新しいメッセージまたはリセットにより、この応答は破棄されました';
+  if (!text.trim()) return status;
+  return `${status}\n\n${text}`;
+}
+
 export function buildFailedMessage(message: string): string {
   return `❌失敗:${message}`;
 }

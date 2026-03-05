@@ -2,7 +2,13 @@ import type { Message } from 'discord.js';
 import type { AiAdapter } from '../adapters';
 import type { createBotState } from './state';
 import type { createThreadTaskManager } from './thread-task-manager';
-import { buildCompletedMessage, buildFailedMessage, buildProgressMessage, truncate } from './messages';
+import {
+  buildCompletedMessage,
+  buildFailedMessage,
+  buildInterruptedMessage,
+  buildProgressMessage,
+  truncate,
+} from './messages';
 
 const EDIT_INTERVAL_MS = 1500;
 
@@ -68,7 +74,7 @@ export async function respond(
     clearInterval(interval);
 
     if (!taskManager.isCurrentRevision(sessionKey, revision)) {
-      await thinking.edit('⚠️中断:新しいメッセージまたはリセットにより、この応答は破棄されました');
+      await thinking.edit(truncate(buildInterruptedMessage(latestText)));
       return;
     }
 
