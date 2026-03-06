@@ -66,14 +66,17 @@ export async function respond(
   try {
     await thinking.edit(buildProgressMessage(Date.now() - startedAt, latestText));
 
-    const result = await adapter.run(prompt, sessionId, (text) => {
-      if (!taskManager.isCurrentRevision(sessionKey, revision)) {
-        abortController.abort();
-        return;
-      }
-      latestText = text;
-      dirty = true;
-    }, abortController.signal);
+    const result = await adapter.run(prompt, sessionId, {
+      signal: abortController.signal,
+      onChunk: (text) => {
+        if (!taskManager.isCurrentRevision(sessionKey, revision)) {
+          abortController.abort();
+          return;
+        }
+        latestText = text;
+        dirty = true;
+      },
+    });
 
     clearInterval(interval);
 

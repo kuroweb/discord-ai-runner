@@ -5,11 +5,15 @@ export interface AiResult {
   output_tokens?: number;
 }
 
+export interface AiRunOptions {
+  onChunk: (text: string) => void;
+  signal?: AbortSignal;
+}
+
 export interface AiAdapter {
   run(
     prompt: string,
     sessionId: string | undefined,
-    onChunk: (text: string) => void,
-    signal?: AbortSignal,
+    options: AiRunOptions,
   ): Promise<AiResult>;
 }

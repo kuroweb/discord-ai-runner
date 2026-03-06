@@ -1,6 +1,11 @@
 import type { Client, Message } from 'discord.js';
 import type { AiAdapter } from '../adapters';
-import { asQuote, buildThreadName, formatStatus, truncate } from './messages';
+import {
+  asQuote,
+  buildThreadName,
+  formatStatus,
+  truncate,
+} from './messages';
 import { respond } from './respond';
 import type { createBotState } from './state';
 import type { createThreadTaskManager } from './thread-task-manager';

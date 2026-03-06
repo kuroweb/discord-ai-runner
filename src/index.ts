@@ -8,7 +8,8 @@ import { createThreadTaskManager } from './bot/thread-task-manager';
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 if (!DISCORD_TOKEN) throw new Error('DISCORD_TOKEN が設定されていません');
 
-const adapter = createAdapter(process.env.AI_ADAPTER ?? 'claude');
+const adapterName = process.env.AI_ADAPTER ?? 'claude';
+const adapter = createAdapter(adapterName);
 const state = createBotState('.state.json');
 const taskManager = createThreadTaskManager();
 

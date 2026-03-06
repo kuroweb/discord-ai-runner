@@ -1,6 +1,6 @@
 import type { AiAdapter } from './types';
-import { createClaudeAdapter } from './claude';
-import { createCodexAdapter } from './codex';
+import { createClaudeAdapter } from './claude/index';
+import { createCodexAdapter } from './codex/index';
 
 export function createAdapter(name: string): AiAdapter {
   if (name === 'codex') return createCodexAdapter();
@@ -8,4 +8,4 @@ export function createAdapter(name: string): AiAdapter {
 }
 
 export type { AiResult, AiAdapter } from './types';
-export { type ClaudeResult, isClaudeResult } from './claude';
+export { type ClaudeResult, isClaudeResult } from './claude/index';
