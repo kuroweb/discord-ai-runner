@@ -1,4 +1,4 @@
-import type { Client, Message } from 'discord.js';
+import type { Client } from 'discord.js';
 import type { AiAdapter } from '../adapters';
 import {
   buildThreadName,
@@ -48,7 +48,7 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
       const revision = taskManager.nextRevision(channel.id);
       await taskManager.enqueue(channel.id, async () => {
         await respond(
-          channel as { send(content: string): Promise<Message> },
+          { send: (content: string) => message.reply(content) },
           prompt,
           channel.id,
           revision,
