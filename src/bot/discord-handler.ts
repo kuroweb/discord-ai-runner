@@ -69,7 +69,7 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
     }
 
     const thread = await message.startThread({
-      name: buildThreadName(),
+      name: buildThreadName(prompt),
       autoArchiveDuration: 1440,
     });
 

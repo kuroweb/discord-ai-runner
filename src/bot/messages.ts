@@ -61,12 +61,18 @@ export function buildFailedMessage(message: string): string {
   return `❌失敗:${message}`;
 }
 
-export function buildThreadName(): string {
+function sliceByChars(text: string, maxChars: number): string {
+  return Array.from(text).slice(0, maxChars).join('');
+}
+
+export function buildThreadName(prompt: string): string {
   const now = new Date().toLocaleString('ja-JP', {
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
-  return `CodexBot ${now}`.slice(0, DISCORD_THREAD_NAME_MAX_LENGTH);
+  const normalizedPrompt = prompt.normalize('NFKC').replace(/\s+/g, ' ').trim();
+  const summary = sliceByChars(normalizedPrompt, 20) || '新規要望';
+  return `[${now}] ${summary}`.slice(0, DISCORD_THREAD_NAME_MAX_LENGTH);
 }
