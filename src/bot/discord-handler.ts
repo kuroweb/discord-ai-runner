@@ -1,10 +1,8 @@
 import type { Client, Message } from 'discord.js';
 import type { AiAdapter } from '../adapters';
 import {
-  asQuote,
   buildThreadName,
   formatStatus,
-  truncate,
 } from './messages';
 import { respond } from './respond';
 import type { createBotState } from './state';
@@ -79,7 +77,6 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
     const revision = taskManager.nextRevision(thread.id);
     state.save();
 
-    await thread.send(truncate(`初回要望:\n${asQuote(prompt)}`));
     await taskManager.enqueue(thread.id, async () => {
       await respond(thread, prompt, thread.id, revision, { adapter, state, taskManager });
     });
