@@ -31,24 +31,24 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
         taskManager.nextRevision(channel.id);
         state.clearSession(channel.id);
         state.save();
-        await message.reply('セッションをリセットしました。');
+        await message.channel.send('セッションをリセットしました。');
         return;
       }
 
       if (prompt === '!status') {
         const usage = state.getUsage(channel.id);
         if (!usage) {
-          await message.reply('（このセッションはまだ利用データがありません）');
+          await message.channel.send('（このセッションはまだ利用データがありません）');
           return;
         }
-        await message.reply(formatStatus(usage));
+        await message.channel.send(formatStatus(usage));
         return;
       }
 
       const revision = taskManager.nextRevision(channel.id);
       await taskManager.enqueue(channel.id, async () => {
         await respond(
-          { send: (content: string) => message.reply(content) },
+          { send: (content: string) => message.channel.send(content) },
           prompt,
           channel.id,
           revision,
@@ -64,7 +64,7 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
     if (!prompt) return;
 
     if (prompt === '!status') {
-      await message.reply('スレッド内で `!status` を送ってください。');
+      await message.channel.send('スレッド内で `!status` を送ってください。');
       return;
     }
 
