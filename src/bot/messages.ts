@@ -47,8 +47,8 @@ export function buildProgressMessage(elapsedMs: number, latestText: string): str
 }
 
 export function buildCompletedMessage(text: string): string {
-  if (!text.trim()) return '✅完了（応答なし）';
-  return `✅完了\n\n${text}`;
+  if (!text.trim()) return '（応答なし）';
+  return text;
 }
 
 export function buildInterruptedMessage(text: string): string {
