@@ -60,7 +60,7 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
 
     if (!message.mentions.has(client.user!)) return;
 
-    const prompt = message.content.replace(/<@!?\d+>/g, '').trim();
+    const prompt = message.content.replace(/<[@#][!&]?\d+>/g, '').trim();
     if (!prompt) return;
 
     if (prompt === '!status') {
