@@ -53,9 +53,23 @@ if [[ -z "${hook_command}" ]]; then
   deny "Command not found in hook payload (fail-closed)"
 fi
 
-deny_regex='(rm[[:space:]]+-rf[[:space:]]+/|(^|[[:space:]])sudo([[:space:]]|$)|curl[[:space:]].*\|[[:space:]]*sh|wget[[:space:]].*\|[[:space:]]*sh)'
-if echo "$hook_command" | grep -Eiq "$deny_regex"; then
-  deny "Dangerous command detected"
+# settings.json を正本として deny パターンを読み込む
+readonly SETTINGS_FILE="${CLAUDE_PROJECT_DIR}/.claude/settings.json"
+if [[ ! -f "$SETTINGS_FILE" ]]; then
+  deny "settings.json not found (fail-closed)"
 fi
+
+# permissions.deny から Bash(...) パターンを抽出してマッチング
+# パターン形式: "Bash(prefix:*)" → prefix部分をglobとして使用
+while IFS= read -r deny_pattern; do
+  if [[ "$deny_pattern" =~ ^Bash\((.+)\)$ ]]; then
+    inner="${BASH_REMATCH[1]}"
+    # 末尾の :* を除去して glob プレフィックスにする
+    glob="${inner%:*}*"
+    if [[ "$hook_command" == $glob ]]; then
+      deny "Blocked by deny rule: ${deny_pattern}"
+    fi
+  fi
+done < <(jq -r '.permissions.deny[]?' "$SETTINGS_FILE")
 
 allow
