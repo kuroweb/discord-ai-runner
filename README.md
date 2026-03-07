@@ -228,26 +228,44 @@ which jq || brew install jq
 # スクリプトの実行権限確認
 ls -la .claude/hooks/deny-check.sh
 
-# 手動テスト（許可されるコマンド）
-echo '{"tool_input":{"command":"ls -la"}}' | .claude/hooks/deny-check.sh
-# => {"decision":"allow"}
+# 手動テスト（許可されるコマンド）：exit 0
+echo '{"tool_input":{"command":"ls -la"}}' | bash .claude/hooks/deny-check.sh; echo "exit: $?"
+# => exit: 0
 
-# 手動テスト（拒否されるコマンド）
-echo '{"tool_input":{"command":"sudo echo test"}}' | .claude/hooks/deny-check.sh
-# => {"decision":"deny","reason":"Dangerous command detected"}
+# 手動テスト（拒否されるコマンド）：stderr にメッセージ + exit 2
+echo '{"tool_input":{"command":"sudo echo test"}}' | bash .claude/hooks/deny-check.sh; echo "exit: $?"
+# => Dangerous command detected
+# => exit: 2
 ```
 
 ### ログ確認
 
-```bash
-# デフォルトログパス
-tail -f /tmp/claude-deny-check.log
+デフォルトは**無効**。`.env` で有効化する。
 
-# カスタムログパス指定
-CLAUDE_HOOK_LOG_FILE=/path/to/deny.log claude --dangerously-skip-permissions
+```bash
+HOOK_LOG=true
 ```
 
-### ロールバック手順
+有効化後、`logs/deny-check.log` に出力される（1行1JSON）。
+
+```json
+{"timestamp":"2026-03-07T05:47:53Z","decision":"allow","command":"echo test"}
+{"timestamp":"2026-03-07T05:49:17Z","decision":"deny","reason":"Dangerous command detected","command":"sudo echo test"}
+{"timestamp":"2026-03-07T05:49:19Z","decision":"allow","command":"tail -1 logs/deny-check.log | jq ."}
+```
+
+| フィールド | 内容 |
+| --- | --- |
+| `timestamp` | UTC タイムスタンプ（ISO 8601） |
+| `decision` | `allow` または `deny` |
+| `reason` | 拒否理由（deny のみ） |
+| `command` | 検査対象コマンド |
+
+```bash
+tail -f logs/deny-check.log
+```
+
+### Hook の無効化
 
 Hook を無効化する場合は `settings.json` の `hooks` セクションを削除または空配列に変更する。`settings.local.json` での上書きは必須 deny ルールを無効化しない範囲に限定すること。
 
