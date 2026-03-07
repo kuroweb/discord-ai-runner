@@ -188,6 +188,69 @@ sudo launchctl kickstart -k system/com.discord-ai-runner-codex
 sudo launchctl kickstart -k system/com.discord-ai-runner-claude
 ```
 
+## Claude Hook によるガードレール設定
+
+`--dangerously-skip-permissions` を前提とした Claude 実行に対し、`.claude` の PreToolUse Hook で Bash コマンドを事前検査するガードレールを提供する。
+
+### ファイル構成
+
+```text
+.claude/
+├── settings.json                 # 必須・共有（Git管理）
+├── settings.local.json.example   # ローカル上書きサンプル（Git管理）
+├── settings.local.json           # ローカル上書き（.gitignore 除外）
+└── hooks/
+    └── deny-check.sh             # Bash コマンド検査スクリプト
+```
+
+### 初回セットアップ
+
+```bash
+# ローカル設定ファイルを作成（任意）
+cp .claude/settings.local.json.example .claude/settings.local.json
+```
+
+### 拒否対象コマンド
+
+| パターン | 理由 |
+| --- | --- |
+| `sudo *` | 権限昇格 |
+| `rm -rf /` | ルートディレクトリ以下の全削除 |
+| `curl * \| sh` | 任意スクリプトの即時実行 |
+| `wget * \| sh` | 任意スクリプトの即時実行 |
+
+### 動作確認
+
+```bash
+# jq が必要（未インストールの場合は deny される）
+which jq || brew install jq
+
+# スクリプトの実行権限確認
+ls -la .claude/hooks/deny-check.sh
+
+# 手動テスト（許可されるコマンド）
+echo '{"tool_input":{"command":"ls -la"}}' | .claude/hooks/deny-check.sh
+# => {"decision":"allow"}
+
+# 手動テスト（拒否されるコマンド）
+echo '{"tool_input":{"command":"sudo echo test"}}' | .claude/hooks/deny-check.sh
+# => {"decision":"deny","reason":"Dangerous command detected"}
+```
+
+### ログ確認
+
+```bash
+# デフォルトログパス
+tail -f /tmp/claude-deny-check.log
+
+# カスタムログパス指定
+CLAUDE_HOOK_LOG_FILE=/path/to/deny.log claude --dangerously-skip-permissions
+```
+
+### ロールバック手順
+
+Hook を無効化する場合は `settings.json` の `hooks` セクションを削除または空配列に変更する。`settings.local.json` での上書きは必須 deny ルールを無効化しない範囲に限定すること。
+
 ## トラブルシュート
 
 - `DISCORD_TOKEN が設定されていません`

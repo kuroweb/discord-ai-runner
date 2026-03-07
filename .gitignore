@@ -3,3 +3,6 @@ node_modules/
 .state.json
 logs/
 *.log
+
+# .claude
+.claude/settings.local.json
