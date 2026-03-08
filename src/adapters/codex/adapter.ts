@@ -18,7 +18,10 @@ interface JsonRpcResponse {
 interface PendingRequest {
   resolve: (result: unknown) => void;
   reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
 }
+
+const REQUEST_TIMEOUT_MS = 30_000;
 
 function buildUserInput(prompt: string): Array<{ type: 'text'; text: string; text_elements: unknown[] }> {
   return [{ type: 'text', text: prompt, text_elements: [] }];
@@ -86,6 +89,7 @@ export function createCodexAdapter(): AiAdapter {
 
     function rejectAll(err: Error): void {
       for (const request of pending.values()) {
+        clearTimeout(request.timer);
         request.reject(err);
       }
       pending.clear();
@@ -100,7 +104,11 @@ export function createCodexAdapter(): AiAdapter {
       const id = nextId++;
       send({ id, method, params } satisfies JsonRpcRequest);
       return new Promise((resolve, reject) => {
-        pending.set(id, { resolve, reject });
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          reject(new Error(`request timeout: ${method}`));
+        }, REQUEST_TIMEOUT_MS);
+        pending.set(id, { resolve, reject, timer });
       });
     }
 
@@ -218,6 +226,7 @@ export function createCodexAdapter(): AiAdapter {
           const pendingReq = pending.get(message.id);
           if (!pendingReq) continue;
           pending.delete(message.id);
+          clearTimeout(pendingReq.timer);
           if (message.error) {
             pendingReq.reject(new Error(typeof message.error?.message === 'string' ? message.error.message : 'JSON-RPC error'));
           } else {
@@ -288,46 +297,48 @@ export function createCodexAdapter(): AiAdapter {
       runReject?.(new DOMException('aborted', 'AbortError'));
     }, { once: true });
 
-    // 1) initialize
-    await request('initialize', {
-      clientInfo: {
-        name: 'discord-ai-runner',
-        title: 'discord-ai-runner',
-        version: '0.1.0',
-      },
-      capabilities: {
-        experimentalApi: false,
-      },
-    });
-
-    // 2) create or resume thread
-    if (sessionId) {
-      const resumeResult = await request('thread/resume', {
-        threadId: sessionId,
-        approvalPolicy: 'untrusted',
+    try {
+      // 1) initialize
+      await request('initialize', {
+        clientInfo: {
+          name: 'discord-ai-runner',
+          title: 'discord-ai-runner',
+          version: '0.1.0',
+        },
+        capabilities: {
+          experimentalApi: false,
+        },
       });
-      const resumed = extractThreadId(resumeResult);
-      if (resumed) resolvedThreadId = resumed;
-    } else {
-      const startResult = await request('thread/start', {
-        approvalPolicy: 'untrusted',
-        sandbox: 'workspace-write',
-        experimentalRawEvents: false,
+
+      // 2) create or resume thread
+      if (sessionId) {
+        const resumeResult = await request('thread/resume', {
+          threadId: sessionId,
+          approvalPolicy: 'untrusted',
+        });
+        const resumed = extractThreadId(resumeResult);
+        if (resumed) resolvedThreadId = resumed;
+      } else {
+        const startResult = await request('thread/start', {
+          approvalPolicy: 'untrusted',
+          sandbox: 'workspace-write',
+          experimentalRawEvents: false,
+        });
+        const started = extractThreadId(startResult);
+        if (started) resolvedThreadId = started;
+      }
+
+      // 3) start turn
+      await request('turn/start', {
+        threadId: resolvedThreadId,
+        input: buildUserInput(prompt),
       });
-      const started = extractThreadId(startResult);
-      if (started) resolvedThreadId = started;
-    }
 
-    // 3) start turn
-    await request('turn/start', {
-      threadId: resolvedThreadId,
-      input: buildUserInput(prompt),
-    });
-
-    const result = await completed.finally(() => {
+      const result = await completed;
+      return result;
+    } finally {
       proc.kill();
-    });
-    return result;
+    }
   }
 
   return { run };
