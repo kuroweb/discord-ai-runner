@@ -279,7 +279,13 @@ export function createCodexAdapter(): AiAdapter {
           }
 
           if (method === 'error') {
-            const errMessage = (params as any)?.error?.message ?? 'codex turn failed';
+            const p = params as any;
+            const willRetry = Boolean(p?.willRetry);
+            const errMessage = p?.error?.message ?? p?.message ?? 'codex turn failed';
+            if (willRetry) {
+              console.warn('[codex-app-server] transient error:', String(errMessage));
+              continue;
+            }
             runReject?.(new Error(String(errMessage)));
           }
         }
