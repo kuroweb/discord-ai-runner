@@ -1,7 +1,8 @@
-import type { Message } from 'discord.js';
+import type { Message, TextBasedChannel } from 'discord.js';
 import type { AiAdapter } from '../adapters';
 import type { createBotState } from './state';
 import type { createThreadTaskManager } from './thread-task-manager';
+import type { createApprovalManager } from './approval-manager';
 import {
   buildCompletedMessage,
   buildFailedMessage,
@@ -20,16 +21,23 @@ interface RespondDependencies {
   adapter: AiAdapter;
   state: ReturnType<typeof createBotState>;
   taskManager: ReturnType<typeof createThreadTaskManager>;
+  approvalManager: ReturnType<typeof createApprovalManager>;
 }
 
 export async function respond(
   sendTarget: SendTarget,
+  approvalChannel: TextBasedChannel,
   prompt: string,
   sessionKey: string,
   revision: number,
   dependencies: RespondDependencies,
 ): Promise<void> {
-  const { adapter, state, taskManager } = dependencies;
+  const {
+    adapter,
+    state,
+    taskManager,
+    approvalManager,
+  } = dependencies;
 
   if (!taskManager.isCurrentRevision(sessionKey, revision)) {
     return;
@@ -76,6 +84,12 @@ export async function respond(
         latestText = text;
         dirty = true;
       },
+      requestApproval: async (request) => approvalManager.requestApproval(
+        approvalChannel,
+        sessionKey,
+        request.toolName,
+        request.input,
+      ),
     });
 
     clearInterval(interval);

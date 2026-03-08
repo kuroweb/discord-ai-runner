@@ -1,7 +1,7 @@
 export function buildClaudeArgs(sessionId: string | undefined, prompt: string): string[] {
-  const dangerousArgs = ['--dangerously-skip-permissions'];
+  const permissionArgs = ['--permission-mode', 'default'];
   if (sessionId) {
-    return ['--resume', sessionId, ...dangerousArgs, '-p', prompt, '--output-format', 'stream-json', '--verbose'];
+    return ['--resume', sessionId, ...permissionArgs, '-p', prompt, '--output-format', 'stream-json', '--verbose'];
   }
-  return [...dangerousArgs, '-p', prompt, '--output-format', 'stream-json', '--verbose'];
+  return [...permissionArgs, '-p', prompt, '--output-format', 'stream-json', '--verbose'];
 }

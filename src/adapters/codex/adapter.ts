@@ -1,13 +1,53 @@
 import { spawn } from 'child_process';
-import type { AiAdapter, AiRunOptions, AiResult } from '../types';
-import { buildCodexArgs } from './args';
-import {
-  applyCodexEvent,
-  toAiResult,
-} from './events';
-import { createInitialRunState } from './types';
+import type { AiAdapter, AiResult, AiRunOptions, ToolApprovalDecision } from '../types';
 
-const EXEC_TIMEOUT_MS = 300_000;
+type RequestId = string | number;
+
+interface JsonRpcRequest {
+  id: RequestId;
+  method: string;
+  params?: unknown;
+}
+
+interface JsonRpcResponse {
+  id: RequestId;
+  result?: unknown;
+  error?: unknown;
+}
+
+interface PendingRequest {
+  resolve: (result: unknown) => void;
+  reject: (error: Error) => void;
+}
+
+function buildUserInput(prompt: string): Array<{ type: 'text'; text: string; text_elements: unknown[] }> {
+  return [{ type: 'text', text: prompt, text_elements: [] }];
+}
+
+function mapDecision(decision: ToolApprovalDecision): 'accept' | 'acceptForSession' | 'decline' {
+  if (decision === 'approve-all') return 'acceptForSession';
+  if (decision === 'approve') return 'accept';
+  return 'decline';
+}
+
+function mapLegacyDecision(decision: ToolApprovalDecision): 'allow' | 'deny' {
+  return decision === 'deny' ? 'deny' : 'allow';
+}
+
+function extractThreadId(result: unknown): string | null {
+  const obj = result as any;
+  return obj?.thread?.id ?? null;
+}
+
+function extractTurnUsage(notificationParams: unknown): { input?: number; output?: number } {
+  const params = notificationParams as any;
+  const usage = params?.turn?.tokenUsage ?? params?.tokenUsage;
+  const total = usage?.last ?? usage?.total;
+  return {
+    input: total?.inputTokens,
+    output: total?.outputTokens,
+  };
+}
 
 export function createCodexAdapter(): AiAdapter {
   async function run(
@@ -15,62 +55,279 @@ export function createCodexAdapter(): AiAdapter {
     sessionId: string | undefined,
     options: AiRunOptions,
   ): Promise<AiResult> {
-    const { onChunk, signal } = options;
+    const { onChunk, signal, requestApproval } = options;
+    const proc = spawn('codex', ['app-server', '--listen', 'stdio://'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
 
-    return new Promise<AiResult>((resolve, reject) => {
-      const args = buildCodexArgs(sessionId, prompt);
-      console.log('[codex] 実行開始:', args.join(' '));
+    let nextId = 1;
+    const pending = new Map<RequestId, PendingRequest>();
+    let lineBuffer = '';
+    let accumulatedText = '';
+    let resolvedThreadId = sessionId ?? '';
+    let usageInput: number | undefined;
+    let usageOutput: number | undefined;
 
-      const proc = spawn('codex', args, { stdio: ['pipe', 'pipe', 'pipe'] });
-      let lineBuffer = '';
-      const state = createInitialRunState();
+    let runResolve: ((result: AiResult) => void) | null = null;
+    let runReject: ((error: Error) => void) | null = null;
+    let settled = false;
+    const completed = new Promise<AiResult>((resolve, reject) => {
+      runResolve = (result) => {
+        if (settled) return;
+        settled = true;
+        resolve(result);
+      };
+      runReject = (error) => {
+        if (settled) return;
+        settled = true;
+        reject(error);
+      };
+    });
 
-      signal?.addEventListener('abort', () => {
-        clearTimeout(timer);
-        proc.kill();
-        reject(new DOMException('aborted', 'AbortError'));
-      }, { once: true });
+    function rejectAll(err: Error): void {
+      for (const request of pending.values()) {
+        request.reject(err);
+      }
+      pending.clear();
+      runReject?.(err);
+    }
 
-      proc.on('error', (err) => {
-        console.error('[codex] spawn エラー:', err);
-        reject(err);
+    function send(message: object): void {
+      proc.stdin.write(`${JSON.stringify(message)}\n`);
+    }
+
+    function request(method: string, params: unknown): Promise<unknown> {
+      const id = nextId++;
+      send({ id, method, params } satisfies JsonRpcRequest);
+      return new Promise((resolve, reject) => {
+        pending.set(id, { resolve, reject });
       });
+    }
 
-      proc.stdout.on('data', (data: Buffer) => {
-        lineBuffer += data.toString();
-        const lines = lineBuffer.split('\n');
-        lineBuffer = lines.pop() ?? '';
+    async function handleServerRequest(message: JsonRpcRequest): Promise<void> {
+      const { id, method, params } = message;
+      if (id === undefined || id === null) return;
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const event = JSON.parse(line);
-            applyCodexEvent(event, state, onChunk);
-          } catch {
-            // JSON パース失敗は無視
+      if (method === 'item/commandExecution/requestApproval') {
+        const p = params as any;
+        const command = p?.command ?? '';
+        const decision = requestApproval
+          ? await requestApproval({ toolName: 'Bash', input: { command } })
+          : 'deny';
+        send({ id, result: { decision: mapDecision(decision) } });
+        return;
+      }
+
+      if (method === 'execCommandApproval') {
+        const p = params as any;
+        const command = p?.command ?? '';
+        const decision = requestApproval
+          ? await requestApproval({ toolName: 'Bash', input: { command } })
+          : 'deny';
+        send({ id, result: { decision: mapLegacyDecision(decision) } });
+        return;
+      }
+
+      if (method === 'item/fileChange/requestApproval') {
+        const p = params as any;
+        const decision = requestApproval
+          ? await requestApproval({
+            toolName: 'Edit',
+            input: {
+              reason: p?.reason ?? '',
+              grantRoot: p?.grantRoot ?? null,
+            },
+          })
+          : 'deny';
+        send({ id, result: { decision: mapDecision(decision) } });
+        return;
+      }
+
+      if (method === 'applyPatchApproval') {
+        const p = params as any;
+        const decision = requestApproval
+          ? await requestApproval({
+            toolName: 'Edit',
+            input: {
+              reason: p?.reason ?? '',
+              grantRoot: p?.grantRoot ?? null,
+            },
+          })
+          : 'deny';
+        send({ id, result: { decision: mapLegacyDecision(decision) } });
+        return;
+      }
+
+      if (method === 'item/tool/requestUserInput') {
+        const p = params as any;
+        const answers: Record<string, { answers: string[] }> = {};
+        for (const q of p?.questions ?? []) {
+          const first = q?.options?.[0]?.label;
+          answers[q.id] = { answers: first ? [first] : [] };
+        }
+        send({ id, result: { answers } });
+        return;
+      }
+
+      if (method === 'item/tool/call') {
+        send({ id, result: { content: [{ type: 'inputText', text: 'Unsupported dynamic tool in this runner.' }] } });
+        return;
+      }
+
+      send({ id, result: {} });
+    }
+
+    proc.on('error', (err) => {
+      rejectAll(err instanceof Error ? err : new Error(String(err)));
+    });
+
+    proc.stderr.on('data', (data: Buffer) => {
+      const text = data.toString().trim();
+      if (text) {
+        console.error('[codex-app-server] stderr:', text);
+      }
+    });
+
+    proc.stdout.on('data', (data: Buffer) => {
+      lineBuffer += data.toString();
+      const lines = lineBuffer.split('\n');
+      lineBuffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let message: any;
+        try {
+          message = JSON.parse(line);
+        } catch {
+          continue;
+        }
+
+        if (typeof message?.method === 'string' && message?.id !== undefined) {
+          void handleServerRequest(message as JsonRpcRequest).catch((error) => {
+            const req = message as JsonRpcRequest;
+            if (req.id !== undefined && req.id !== null) {
+              send({ id: req.id, result: { decision: 'decline' } });
+            }
+            console.error('[codex-app-server] request handling error:', error);
+          });
+          continue;
+        }
+
+        if (message?.id !== undefined && (Object.prototype.hasOwnProperty.call(message, 'result')
+          || Object.prototype.hasOwnProperty.call(message, 'error'))) {
+          const pendingReq = pending.get(message.id);
+          if (!pendingReq) continue;
+          pending.delete(message.id);
+          if (message.error) {
+            pendingReq.reject(new Error(typeof message.error?.message === 'string' ? message.error.message : 'JSON-RPC error'));
+          } else {
+            pendingReq.resolve((message as JsonRpcResponse).result);
+          }
+          continue;
+        }
+
+        if (typeof message?.method === 'string') {
+          const method = message.method as string;
+          const params = message.params;
+
+          if (method === 'thread/started') {
+            const thread = (params as any)?.thread;
+            if (thread?.id) resolvedThreadId = thread.id;
+            continue;
+          }
+
+          if (method === 'item/agentMessage/delta') {
+            const delta = (params as any)?.delta;
+            if (typeof delta === 'string' && delta.length > 0) {
+              accumulatedText += delta;
+              onChunk(accumulatedText);
+            }
+            continue;
+          }
+
+          if (method === 'item/completed') {
+            const item = (params as any)?.item;
+            if (item?.type === 'agentMessage' && typeof item.text === 'string' && !accumulatedText) {
+              accumulatedText = item.text;
+              onChunk(accumulatedText);
+            }
+            continue;
+          }
+
+          if (method === 'thread/tokenUsage/updated' || method === 'turn/completed') {
+            const usage = extractTurnUsage(params);
+            usageInput = usage.input ?? usageInput;
+            usageOutput = usage.output ?? usageOutput;
+          }
+
+          if (method === 'turn/completed') {
+            runResolve?.({
+              result: accumulatedText || '（応答なし）',
+              session_id: resolvedThreadId,
+              input_tokens: usageInput,
+              output_tokens: usageOutput,
+            });
+          }
+
+          if (method === 'error') {
+            const errMessage = (params as any)?.error?.message ?? 'codex turn failed';
+            runReject?.(new Error(String(errMessage)));
           }
         }
-      });
-
-      proc.stderr.on('data', (data: Buffer) => {
-        console.error('[codex] stderr:', data.toString());
-      });
-
-      const timer = setTimeout(() => {
-        proc.kill();
-        reject(new Error('timeout'));
-      }, EXEC_TIMEOUT_MS);
-
-      proc.on('close', (code) => {
-        clearTimeout(timer);
-        console.log('[codex] 終了 code:', code);
-        if (code === 0) {
-          resolve(toAiResult(state));
-        } else {
-          reject(new Error(`exit code ${code}`));
-        }
-      });
+      }
     });
+
+    proc.on('close', (code) => {
+      if (!settled) {
+        rejectAll(new Error(`codex app-server closed unexpectedly (code=${code})`));
+      }
+    });
+
+    signal?.addEventListener('abort', () => {
+      proc.kill();
+      runReject?.(new DOMException('aborted', 'AbortError'));
+    }, { once: true });
+
+    // 1) initialize
+    await request('initialize', {
+      clientInfo: {
+        name: 'discord-ai-runner',
+        title: 'discord-ai-runner',
+        version: '0.1.0',
+      },
+      capabilities: {
+        experimentalApi: false,
+      },
+    });
+
+    // 2) create or resume thread
+    if (sessionId) {
+      const resumeResult = await request('thread/resume', {
+        threadId: sessionId,
+        approvalPolicy: 'untrusted',
+      });
+      const resumed = extractThreadId(resumeResult);
+      if (resumed) resolvedThreadId = resumed;
+    } else {
+      const startResult = await request('thread/start', {
+        approvalPolicy: 'untrusted',
+        sandbox: 'workspace-write',
+        experimentalRawEvents: false,
+      });
+      const started = extractThreadId(startResult);
+      if (started) resolvedThreadId = started;
+    }
+
+    // 3) start turn
+    await request('turn/start', {
+      threadId: resolvedThreadId,
+      input: buildUserInput(prompt),
+    });
+
+    const result = await completed.finally(() => {
+      proc.kill();
+    });
+    return result;
   }
 
   return { run };

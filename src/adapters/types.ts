@@ -5,9 +5,17 @@ export interface AiResult {
   output_tokens?: number;
 }
 
+export interface ToolApprovalRequest {
+  toolName: string;
+  input: Record<string, unknown>;
+}
+
+export type ToolApprovalDecision = 'approve' | 'deny' | 'approve-all';
+
 export interface AiRunOptions {
   onChunk: (text: string) => void;
   signal?: AbortSignal;
+  requestApproval?: (request: ToolApprovalRequest) => Promise<ToolApprovalDecision>;
 }
 
 export interface AiAdapter {

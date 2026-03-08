@@ -1,7 +1,7 @@
 export function buildCodexArgs(sessionId: string | undefined, prompt: string): string[] {
-  const dangerousArgs = ['--dangerously-bypass-approvals-and-sandbox'];
+  const safeArgs = ['-a', 'on-request', '-s', 'workspace-write'];
   if (sessionId) {
-    return [...dangerousArgs, 'exec', 'resume', sessionId, '--json', prompt];
+    return [...safeArgs, 'exec', 'resume', sessionId, '--json', prompt];
   }
-  return [...dangerousArgs, 'exec', '--json', prompt];
+  return [...safeArgs, 'exec', '--json', prompt];
 }
