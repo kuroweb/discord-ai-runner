@@ -1,6 +1,7 @@
-import type { Message, TextBasedChannel } from 'discord.js'
+import type { Message } from 'discord.js'
 import type { AiAdapter } from '../adapters'
 import type { createBotState } from './state'
+import type { ApprovalMessageTarget } from './approval-manager'
 import type { createThreadTaskManager } from './thread-task-manager'
 import type { createApprovalManager } from './approval-manager'
 import {
@@ -26,7 +27,7 @@ interface RespondDependencies {
 
 export async function respond(
   sendTarget: SendTarget,
-  approvalChannel: TextBasedChannel,
+  approvalTarget: ApprovalMessageTarget,
   prompt: string,
   sessionKey: string,
   revision: number,
@@ -86,7 +87,7 @@ export async function respond(
       },
       requestApproval: async (request) =>
         approvalManager.requestApproval(
-          approvalChannel,
+          approvalTarget,
           sessionKey,
           request.toolName,
           request.input,
