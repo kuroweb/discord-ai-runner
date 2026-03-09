@@ -9,7 +9,12 @@ export function createClaudeAdapter(): AiAdapter {
     sessionId: string | undefined,
     options: AiRunOptions,
   ): Promise<ClaudeResult> {
-    const { onChunk, signal, requestApproval } = options;
+    const {
+      onChunk,
+      signal,
+      cwd,
+      requestApproval,
+    } = options;
     const readOnlyTools = new Set(['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'TodoWrite']);
     let accumulated = '';
     let finalResult: ClaudeResult | null = null;
@@ -17,7 +22,7 @@ export function createClaudeAdapter(): AiAdapter {
     const queryInstance = query({
       prompt,
       options: {
-        cwd: process.cwd(),
+        cwd: cwd ?? process.cwd(),
         permissionMode: 'default',
         ...(sessionId ? { resume: sessionId } : {}),
         canUseTool: async (toolName: string, input: Record<string, unknown>) => {

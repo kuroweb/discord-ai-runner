@@ -58,8 +58,9 @@ export function createCodexAdapter(): AiAdapter {
     sessionId: string | undefined,
     options: AiRunOptions,
   ): Promise<AiResult> {
-    const { onChunk, signal, requestApproval } = options;
+    const { onChunk, signal, cwd, requestApproval } = options;
     const proc = spawn('codex', ['app-server', '--listen', 'stdio://'], {
+      cwd: cwd ?? process.cwd(),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

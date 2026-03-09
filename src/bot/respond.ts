@@ -75,6 +75,7 @@ export async function respond(
     await thinking.edit(buildProgressMessage(Date.now() - startedAt, latestText));
 
     const result = await adapter.run(prompt, sessionId, {
+      cwd: state.getThreadCwd(sessionKey),
       signal: abortController.signal,
       onChunk: (text) => {
         if (!taskManager.isCurrentRevision(sessionKey, revision)) {

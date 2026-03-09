@@ -5,7 +5,12 @@ import {
   type ChatInputCommandInteraction,
   type Client,
 } from 'discord.js';
-import { getThreadStatus, resetThreadSession } from './thread-commands';
+import {
+  getThreadCwd,
+  getThreadStatus,
+  resetThreadSession,
+  setThreadCwd,
+} from './thread-commands';
 import type { createApprovalManager } from './approval-manager';
 import type { createBotState } from './state';
 import type { createThreadTaskManager } from './thread-task-manager';
@@ -17,6 +22,13 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('reset')
     .setDescription('現在のスレッドのセッションをリセットします'),
+  new SlashCommandBuilder()
+    .setName('cwd')
+    .setDescription('現在のスレッドに紐づく作業ディレクトリを表示または設定します')
+    .addStringOption((option) => option
+      .setName('path')
+      .setDescription('設定したいディレクトリパス。未指定なら現在値を表示します')
+      .setRequired(false)),
 ].map((command) => command.toJSON());
 
 interface SlashCommandDependencies {
@@ -72,5 +84,16 @@ export async function handleSlashCommand(
     await interaction.reply(
       resetThreadSession(channelId, { state, taskManager, approvalManager }),
     );
+    return;
+  }
+
+  if (interaction.commandName === 'cwd') {
+    const path = interaction.options.getString('path');
+    if (!path) {
+      await interaction.reply(`📁 現在の cwd: \`${getThreadCwd(channelId, { state })}\``);
+      return;
+    }
+
+    await interaction.reply(setThreadCwd(channelId, path, { state }));
   }
 }

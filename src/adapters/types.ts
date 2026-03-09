@@ -15,6 +15,7 @@ export type ToolApprovalDecision = 'approve' | 'deny' | 'approve-all';
 export interface AiRunOptions {
   onChunk: (text: string) => void;
   signal?: AbortSignal;
+  cwd?: string;
   requestApproval?: (request: ToolApprovalRequest) => Promise<ToolApprovalDecision>;
 }
 
