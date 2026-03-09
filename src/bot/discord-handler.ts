@@ -15,6 +15,53 @@ interface HandlerDependencies {
   approvalManager: ReturnType<typeof createApprovalManager>;
 }
 
+type ApprovalDecision = 'approve' | 'deny' | 'approve-all';
+
+function parseApprovalCustomId(customId: string): { decision: ApprovalDecision; requestId: string } | null {
+  const idx = customId.indexOf(':');
+  const action = idx === -1 ? customId : customId.slice(0, idx);
+  const requestId = idx === -1 ? '' : customId.slice(idx + 1);
+  if (!requestId) return null;
+
+  if (action === 'approve' || action === 'deny' || action === 'approve-all') {
+    return { decision: action, requestId };
+  }
+
+  return null;
+}
+
+async function enqueueResponse(
+  channelId: string,
+  prompt: string,
+  sendTarget: Parameters<typeof respond>[0],
+  approvalChannel: Parameters<typeof respond>[1],
+  dependencies: Omit<HandlerDependencies, 'client'>,
+): Promise<void> {
+  const {
+    adapter,
+    state,
+    taskManager,
+    approvalManager,
+  } = dependencies;
+  const revision = taskManager.nextRevision(channelId);
+
+  await taskManager.enqueue(channelId, async () => {
+    await respond(
+      sendTarget,
+      approvalChannel,
+      prompt,
+      channelId,
+      revision,
+      {
+        adapter,
+        state,
+        taskManager,
+        approvalManager,
+      },
+    );
+  });
+}
+
 export function registerMessageHandler(dependencies: HandlerDependencies): void {
   const {
     client,
@@ -32,22 +79,9 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
 
     if (!interaction.isButton()) return;
 
-    const raw = interaction.customId;
-    const idx = raw.indexOf(':');
-    const action = idx === -1 ? raw : raw.slice(0, idx);
-    const requestId = idx === -1 ? '' : raw.slice(idx + 1);
-    if (!requestId) return;
-
-    let decision: 'approve' | 'deny' | 'approve-all';
-    if (action === 'approve') {
-      decision = 'approve';
-    } else if (action === 'deny') {
-      decision = 'deny';
-    } else if (action === 'approve-all') {
-      decision = 'approve-all';
-    } else {
-      return;
-    }
+    const parsed = parseApprovalCustomId(interaction.customId);
+    if (!parsed) return;
+    const { decision, requestId } = parsed;
 
     const resolved = approvalManager.resolveApproval(requestId, decision);
     if (!resolved) {
@@ -80,22 +114,18 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
       const prompt = message.content.trim();
       if (!prompt) return;
 
-      const revision = taskManager.nextRevision(channel.id);
-      await taskManager.enqueue(channel.id, async () => {
-        await respond(
-          { send: (content: string) => message.channel.send(content) },
-          message.channel,
-          prompt,
-          channel.id,
-          revision,
-          {
-            adapter,
-            state,
-            taskManager,
-            approvalManager,
-          },
-        );
-      });
+      await enqueueResponse(
+        channel.id,
+        prompt,
+        { send: (content: string) => message.channel.send(content) },
+        message.channel,
+        {
+          adapter,
+          state,
+          taskManager,
+          approvalManager,
+        },
+      );
       return;
     }
 
@@ -110,23 +140,19 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
     });
 
     state.activateThread(thread.id);
-    const revision = taskManager.nextRevision(thread.id);
     state.save();
 
-    await taskManager.enqueue(thread.id, async () => {
-      await respond(
-        thread,
-        thread,
-        prompt,
-        thread.id,
-        revision,
-        {
-          adapter,
-          state,
-          taskManager,
-          approvalManager,
-        },
-      );
-    });
+    await enqueueResponse(
+      thread.id,
+      prompt,
+      thread,
+      thread,
+      {
+        adapter,
+        state,
+        taskManager,
+        approvalManager,
+      },
+    );
   });
 }
