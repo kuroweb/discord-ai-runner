@@ -69,7 +69,13 @@ AI_ADAPTER=claude
 npm run dev
 ```
 
-本番相当の単発起動:
+ビルド:
+
+```bash
+npm run build
+```
+
+本番相当の単発起動（ビルド済み成果物）:
 
 ```bash
 npm run start
@@ -184,6 +190,7 @@ sudo launchctl disable system/com.discord-ai-runner-claude
 ```bash
 git pull
 npm install
+npm run build
 sudo launchctl kickstart -k system/com.discord-ai-runner-codex
 sudo launchctl kickstart -k system/com.discord-ai-runner-claude
 ```
