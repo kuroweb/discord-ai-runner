@@ -1,8 +1,9 @@
 import { randomUUID } from 'crypto';
 import {
-  MessageActionRow,
-  MessageButton,
-  MessageEmbed,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
   type TextBasedChannel,
 } from 'discord.js';
 import type { ToolApprovalDecision } from '../adapters/types';
@@ -66,7 +67,7 @@ export function createApprovalManager() {
     if (autoApproveChannels.has(channelId) && !highRisk) return 'approve';
 
     const requestId = randomUUID();
-    const embed = new MessageEmbed()
+    const embed = new EmbedBuilder()
       .setTitle(`🔧 ツール実行承認: ${toolName}`)
       .setColor(highRisk ? '#e74c3c' : '#f39c12')
       .setDescription(summarizeInput(input))
@@ -76,19 +77,19 @@ export function createApprovalManager() {
           : '5分以内に選択してください',
       });
 
-    const row = new MessageActionRow().addComponents(
-      new MessageButton()
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
         .setCustomId(`approve:${requestId}`)
         .setLabel('Approve')
-        .setStyle('SUCCESS'),
-      new MessageButton()
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
         .setCustomId(`deny:${requestId}`)
         .setLabel('Deny')
-        .setStyle('DANGER'),
-      new MessageButton()
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
         .setCustomId(`approve-all:${requestId}`)
         .setLabel('Auto-approve')
-        .setStyle('SECONDARY'),
+        .setStyle(ButtonStyle.Secondary),
     );
 
     await channel.send({ embeds: [embed], components: [row] });

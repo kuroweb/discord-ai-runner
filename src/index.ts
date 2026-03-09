@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Client, Intents } from 'discord.js';
+import { Client, GatewayIntentBits } from 'discord.js';
 import { createAdapter } from './adapters';
 import { registerMessageHandler } from './bot/discord-handler';
 import { createBotState } from './bot/state';
@@ -17,9 +17,9 @@ const approvalManager = createApprovalManager();
 
 const client = new Client({
   intents: [
-    Intents.FLAGS.GUILDS,
-    Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.MESSAGE_CONTENT,
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -31,7 +31,7 @@ registerMessageHandler({
   approvalManager,
 });
 
-client.once('ready', (readyClient) => {
+client.once('clientReady', (readyClient) => {
   console.log(`✅ ${readyClient.user.tag} として起動しました`);
 });
 

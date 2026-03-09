@@ -50,7 +50,7 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
     if (!resolved) {
       await interaction.reply({
         content: 'この承認リクエストは期限切れです。',
-        ephemeral: true,
+        flags: ['Ephemeral'],
       });
       return;
     }
