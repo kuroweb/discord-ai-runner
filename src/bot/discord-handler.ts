@@ -1,9 +1,7 @@
 import type { Client } from 'discord.js';
 import type { AiAdapter } from '../adapters';
-import {
-  buildThreadName,
-  formatStatus,
-} from './messages';
+import { buildThreadName } from './messages';
+import { handleSlashCommand } from './slash-commands';
 import { respond } from './respond';
 import type { createBotState } from './state';
 import type { createThreadTaskManager } from './thread-task-manager';
@@ -27,6 +25,11 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
   } = dependencies;
 
   client.on('interactionCreate', async (interaction) => {
+    if (interaction.isChatInputCommand()) {
+      await handleSlashCommand(interaction, dependencies);
+      return;
+    }
+
     if (!interaction.isButton()) return;
 
     const raw = interaction.customId;
@@ -77,25 +80,6 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
       const prompt = message.content.trim();
       if (!prompt) return;
 
-      if (prompt === '!reset') {
-        taskManager.nextRevision(channel.id);
-        state.clearSession(channel.id);
-        approvalManager.clearAutoApprove(channel.id);
-        state.save();
-        await message.channel.send('セッションをリセットしました。');
-        return;
-      }
-
-      if (prompt === '!status') {
-        const usage = state.getUsage(channel.id);
-        if (!usage) {
-          await message.channel.send('（このセッションはまだ利用データがありません）');
-          return;
-        }
-        await message.channel.send(formatStatus(usage));
-        return;
-      }
-
       const revision = taskManager.nextRevision(channel.id);
       await taskManager.enqueue(channel.id, async () => {
         await respond(
@@ -119,11 +103,6 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
 
     const prompt = message.content.replace(/<[@#][!&]?\d+>/g, '').trim();
     if (!prompt) return;
-
-    if (prompt === '!status') {
-      await message.channel.send('スレッド内で `!status` を送ってください。');
-      return;
-    }
 
     const thread = await message.startThread({
       name: buildThreadName(prompt),
