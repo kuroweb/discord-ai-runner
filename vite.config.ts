@@ -1,10 +1,10 @@
-import { builtinModules } from 'node:module';
-import { defineConfig } from 'vite';
+import { builtinModules } from 'node:module'
+import { defineConfig } from 'vite'
 
 const builtins = new Set([
   ...builtinModules,
   ...builtinModules.map((mod) => `node:${mod}`),
-]);
+])
 
 export default defineConfig({
   build: {
@@ -15,8 +15,8 @@ export default defineConfig({
     target: 'node20',
     rollupOptions: {
       external: (id) => {
-        if (id.startsWith('.') || id.startsWith('/')) return false;
-        return builtins.has(id) || !id.startsWith('\0');
+        if (id.startsWith('.') || id.startsWith('/')) return false
+        return builtins.has(id) || !id.startsWith('\0')
       },
       output: {
         entryFileNames: 'index.cjs',
@@ -24,4 +24,4 @@ export default defineConfig({
       },
     },
   },
-});
+})

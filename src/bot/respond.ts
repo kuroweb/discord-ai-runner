@@ -1,27 +1,27 @@
-import type { Message, TextBasedChannel } from 'discord.js';
-import type { AiAdapter } from '../adapters';
-import type { createBotState } from './state';
-import type { createThreadTaskManager } from './thread-task-manager';
-import type { createApprovalManager } from './approval-manager';
+import type { Message, TextBasedChannel } from 'discord.js'
+import type { AiAdapter } from '../adapters'
+import type { createBotState } from './state'
+import type { createThreadTaskManager } from './thread-task-manager'
+import type { createApprovalManager } from './approval-manager'
 import {
   buildCompletedMessage,
   buildFailedMessage,
   buildInterruptedMessage,
   buildProgressMessage,
   truncate,
-} from './messages';
+} from './messages'
 
-const EDIT_INTERVAL_MS = 1500;
+const EDIT_INTERVAL_MS = 1500
 
 export interface SendTarget {
-  send(content: string): Promise<Message>;
+  send(content: string): Promise<Message>
 }
 
 interface RespondDependencies {
-  adapter: AiAdapter;
-  state: ReturnType<typeof createBotState>;
-  taskManager: ReturnType<typeof createThreadTaskManager>;
-  approvalManager: ReturnType<typeof createApprovalManager>;
+  adapter: AiAdapter
+  state: ReturnType<typeof createBotState>
+  taskManager: ReturnType<typeof createThreadTaskManager>
+  approvalManager: ReturnType<typeof createApprovalManager>
 }
 
 export async function respond(
@@ -32,88 +32,88 @@ export async function respond(
   revision: number,
   dependencies: RespondDependencies,
 ): Promise<void> {
-  const {
-    adapter,
-    state,
-    taskManager,
-    approvalManager,
-  } = dependencies;
+  const { adapter, state, taskManager, approvalManager } = dependencies
 
   if (!taskManager.isCurrentRevision(sessionKey, revision)) {
-    return;
+    return
   }
 
-  const sessionId = state.getSession(sessionKey);
-  const thinking = await sendTarget.send('🔄処理中開始します');
+  const sessionId = state.getSession(sessionKey)
+  const thinking = await sendTarget.send('🔄処理中開始します')
 
-  let latestText = '';
-  let dirty = false;
-  const startedAt = Date.now();
-  let lastRenderedSec = -1;
-  const abortController = new AbortController();
+  let latestText = ''
+  let dirty = false
+  const startedAt = Date.now()
+  let lastRenderedSec = -1
+  const abortController = new AbortController()
 
   const interval = setInterval(async () => {
     if (!taskManager.isCurrentRevision(sessionKey, revision)) {
-      clearInterval(interval);
-      return;
+      clearInterval(interval)
+      return
     }
 
-    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
-    if (!dirty && elapsedSec === lastRenderedSec) return;
+    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000)
+    if (!dirty && elapsedSec === lastRenderedSec) return
 
-    dirty = false;
-    lastRenderedSec = elapsedSec;
+    dirty = false
+    lastRenderedSec = elapsedSec
 
     try {
-      await thinking.edit(truncate(buildProgressMessage(Date.now() - startedAt, latestText)));
+      await thinking.edit(
+        truncate(buildProgressMessage(Date.now() - startedAt, latestText)),
+      )
     } catch {
       // 編集失敗は無視
     }
-  }, EDIT_INTERVAL_MS);
+  }, EDIT_INTERVAL_MS)
 
   try {
-    await thinking.edit(buildProgressMessage(Date.now() - startedAt, latestText));
+    await thinking.edit(
+      buildProgressMessage(Date.now() - startedAt, latestText),
+    )
 
     const result = await adapter.run(prompt, sessionId, {
       cwd: state.getThreadCwd(sessionKey),
       signal: abortController.signal,
       onChunk: (text) => {
         if (!taskManager.isCurrentRevision(sessionKey, revision)) {
-          abortController.abort();
-          return;
+          abortController.abort()
+          return
         }
-        latestText = text;
-        dirty = true;
+        latestText = text
+        dirty = true
       },
-      requestApproval: async (request) => approvalManager.requestApproval(
-        approvalChannel,
-        sessionKey,
-        request.toolName,
-        request.input,
-      ),
-    });
+      requestApproval: async (request) =>
+        approvalManager.requestApproval(
+          approvalChannel,
+          sessionKey,
+          request.toolName,
+          request.input,
+        ),
+    })
 
-    clearInterval(interval);
+    clearInterval(interval)
 
     if (!taskManager.isCurrentRevision(sessionKey, revision)) {
-      await thinking.edit(truncate(buildInterruptedMessage(latestText)));
-      return;
+      await thinking.edit(truncate(buildInterruptedMessage(latestText)))
+      return
     }
 
     if (result.session_id) {
-      state.setSession(sessionKey, result.session_id);
-      state.save();
+      state.setSession(sessionKey, result.session_id)
+      state.save()
     }
-    state.setUsage(sessionKey, result);
+    state.setUsage(sessionKey, result)
 
-    await thinking.edit(truncate(buildCompletedMessage(result.result)));
+    await thinking.edit(truncate(buildCompletedMessage(result.result)))
   } catch (error) {
-    clearInterval(interval);
+    clearInterval(interval)
     if (error instanceof DOMException && error.name === 'AbortError') {
-      await thinking.edit(truncate(buildInterruptedMessage(latestText)));
-      return;
+      await thinking.edit(truncate(buildInterruptedMessage(latestText)))
+      return
     }
-    const message = error instanceof Error ? error.message : String(error);
-    await thinking.edit(truncate(buildFailedMessage(message)));
+    const message = error instanceof Error ? error.message : String(error)
+    await thinking.edit(truncate(buildFailedMessage(message)))
   }
 }

@@ -72,6 +72,24 @@ DISCORD_GUILD_ID=your_guild_id_here
 npm run dev
 ```
 
+Lint:
+
+```bash
+npm run lint
+```
+
+Format check:
+
+```bash
+npm run format:check
+```
+
+Format:
+
+```bash
+npm run format
+```
+
 ビルド:
 
 ```bash
@@ -222,12 +240,12 @@ cp .claude/settings.local.json.example .claude/settings.local.json
 
 ### 拒否対象コマンド
 
-| パターン | 理由 |
-| --- | --- |
-| `sudo *` | 権限昇格 |
-| `rm -rf /` | ルートディレクトリ以下の全削除 |
-| `curl * \| sh` | 任意スクリプトの即時実行 |
-| `wget * \| sh` | 任意スクリプトの即時実行 |
+| パターン       | 理由                           |
+| -------------- | ------------------------------ |
+| `sudo *`       | 権限昇格                       |
+| `rm -rf /`     | ルートディレクトリ以下の全削除 |
+| `curl * \| sh` | 任意スクリプトの即時実行       |
+| `wget * \| sh` | 任意スクリプトの即時実行       |
 
 ### 動作確認
 
@@ -264,12 +282,12 @@ HOOK_LOG=true
 {"timestamp":"2026-03-07T05:49:19Z","decision":"allow","command":"tail -1 logs/deny-check.log | jq ."}
 ```
 
-| フィールド | 内容 |
-| --- | --- |
+| フィールド  | 内容                           |
+| ----------- | ------------------------------ |
 | `timestamp` | UTC タイムスタンプ（ISO 8601） |
-| `decision` | `allow` または `deny` |
-| `reason` | 拒否理由（deny のみ） |
-| `command` | 検査対象コマンド |
+| `decision`  | `allow` または `deny`          |
+| `reason`    | 拒否理由（deny のみ）          |
+| `command`   | 検査対象コマンド               |
 
 ```bash
 tail -f logs/deny-check.log

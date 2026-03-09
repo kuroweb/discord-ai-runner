@@ -1,33 +1,35 @@
-import type { Client } from 'discord.js';
-import type { AiAdapter } from '../adapters';
-import { buildThreadName } from './messages';
-import { handleSlashCommand } from './slash-commands';
-import { respond } from './respond';
-import type { createBotState } from './state';
-import type { createThreadTaskManager } from './thread-task-manager';
-import type { createApprovalManager } from './approval-manager';
+import type { Client } from 'discord.js'
+import type { AiAdapter } from '../adapters'
+import { buildThreadName } from './messages'
+import { handleSlashCommand } from './slash-commands'
+import { respond } from './respond'
+import type { createBotState } from './state'
+import type { createThreadTaskManager } from './thread-task-manager'
+import type { createApprovalManager } from './approval-manager'
 
 interface HandlerDependencies {
-  client: Client;
-  adapter: AiAdapter;
-  state: ReturnType<typeof createBotState>;
-  taskManager: ReturnType<typeof createThreadTaskManager>;
-  approvalManager: ReturnType<typeof createApprovalManager>;
+  client: Client
+  adapter: AiAdapter
+  state: ReturnType<typeof createBotState>
+  taskManager: ReturnType<typeof createThreadTaskManager>
+  approvalManager: ReturnType<typeof createApprovalManager>
 }
 
-type ApprovalDecision = 'approve' | 'deny' | 'approve-all';
+type ApprovalDecision = 'approve' | 'deny' | 'approve-all'
 
-function parseApprovalCustomId(customId: string): { decision: ApprovalDecision; requestId: string } | null {
-  const idx = customId.indexOf(':');
-  const action = idx === -1 ? customId : customId.slice(0, idx);
-  const requestId = idx === -1 ? '' : customId.slice(idx + 1);
-  if (!requestId) return null;
+function parseApprovalCustomId(
+  customId: string,
+): { decision: ApprovalDecision; requestId: string } | null {
+  const idx = customId.indexOf(':')
+  const action = idx === -1 ? customId : customId.slice(0, idx)
+  const requestId = idx === -1 ? '' : customId.slice(idx + 1)
+  if (!requestId) return null
 
   if (action === 'approve' || action === 'deny' || action === 'approve-all') {
-    return { decision: action, requestId };
+    return { decision: action, requestId }
   }
 
-  return null;
+  return null
 }
 
 async function enqueueResponse(
@@ -37,82 +39,66 @@ async function enqueueResponse(
   approvalChannel: Parameters<typeof respond>[1],
   dependencies: Omit<HandlerDependencies, 'client'>,
 ): Promise<void> {
-  const {
-    adapter,
-    state,
-    taskManager,
-    approvalManager,
-  } = dependencies;
-  const revision = taskManager.nextRevision(channelId);
+  const { adapter, state, taskManager, approvalManager } = dependencies
+  const revision = taskManager.nextRevision(channelId)
 
   await taskManager.enqueue(channelId, async () => {
-    await respond(
-      sendTarget,
-      approvalChannel,
-      prompt,
-      channelId,
-      revision,
-      {
-        adapter,
-        state,
-        taskManager,
-        approvalManager,
-      },
-    );
-  });
+    await respond(sendTarget, approvalChannel, prompt, channelId, revision, {
+      adapter,
+      state,
+      taskManager,
+      approvalManager,
+    })
+  })
 }
 
-export function registerMessageHandler(dependencies: HandlerDependencies): void {
-  const {
-    client,
-    adapter,
-    state,
-    taskManager,
-    approvalManager,
-  } = dependencies;
+export function registerMessageHandler(
+  dependencies: HandlerDependencies,
+): void {
+  const { client, adapter, state, taskManager, approvalManager } = dependencies
 
   client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
-      await handleSlashCommand(interaction, dependencies);
-      return;
+      await handleSlashCommand(interaction, dependencies)
+      return
     }
 
-    if (!interaction.isButton()) return;
+    if (!interaction.isButton()) return
 
-    const parsed = parseApprovalCustomId(interaction.customId);
-    if (!parsed) return;
-    const { decision, requestId } = parsed;
+    const parsed = parseApprovalCustomId(interaction.customId)
+    if (!parsed) return
+    const { decision, requestId } = parsed
 
-    const resolved = approvalManager.resolveApproval(requestId, decision);
+    const resolved = approvalManager.resolveApproval(requestId, decision)
     if (!resolved) {
       await interaction.reply({
         content: 'この承認リクエストは期限切れです。',
         flags: ['Ephemeral'],
-      });
-      return;
+      })
+      return
     }
 
     const messages: Record<typeof decision, string> = {
       approve: '✅ 承認しました',
       deny: '❌ 拒否しました',
       'approve-all': '⚡ このスレッドの自動承認を有効化しました',
-    };
+    }
 
     await interaction.update({
       content: messages[decision],
       embeds: [],
       components: [],
-    });
-  });
+    })
+  })
 
   client.on('messageCreate', async (message) => {
-    if (message.author.bot) return;
+    if (message.author.bot) return
 
-    const channel = message.channel;
+    const channel = message.channel
 
     if (state.isActiveThread(channel.id)) {
-      const prompt = message.content.trim();
-      if (!prompt) return;
+      const prompt = message.content.trim()
+      if (!prompt) return
 
       await enqueueResponse(
         channel.id,
@@ -125,34 +111,28 @@ export function registerMessageHandler(dependencies: HandlerDependencies): void 
           taskManager,
           approvalManager,
         },
-      );
-      return;
+      )
+      return
     }
 
-    if (!message.mentions.has(client.user!)) return;
+    if (!message.mentions.has(client.user!)) return
 
-    const prompt = message.content.replace(/<[@#][!&]?\d+>/g, '').trim();
-    if (!prompt) return;
+    const prompt = message.content.replace(/<[@#][!&]?\d+>/g, '').trim()
+    if (!prompt) return
 
     const thread = await message.startThread({
       name: buildThreadName(prompt),
       autoArchiveDuration: 1440,
-    });
+    })
 
-    state.activateThread(thread.id);
-    state.save();
+    state.activateThread(thread.id)
+    state.save()
 
-    await enqueueResponse(
-      thread.id,
-      prompt,
-      thread,
-      thread,
-      {
-        adapter,
-        state,
-        taskManager,
-        approvalManager,
-      },
-    );
-  });
+    await enqueueResponse(thread.id, prompt, thread, thread, {
+      adapter,
+      state,
+      taskManager,
+      approvalManager,
+    })
+  })
 }

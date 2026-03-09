@@ -1,1 +1,1 @@
-export { createCodexAdapter } from './adapter';
+export { createCodexAdapter } from './adapter'
