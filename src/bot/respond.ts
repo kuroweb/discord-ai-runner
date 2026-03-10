@@ -1,3 +1,6 @@
+import { randomUUID } from 'crypto'
+import { mkdir, readdir, rm } from 'fs/promises'
+import { dirname, join } from 'path'
 import type { Message } from 'discord.js'
 import type { AiAdapter } from '../adapters'
 import type { createBotState } from './state'
@@ -13,6 +16,21 @@ import {
 } from './messages'
 
 const EDIT_INTERVAL_MS = 1500
+const ATTACHMENT_ROOT_DIR = '/tmp/discord-ai-runner'
+
+async function cleanupAttachmentOutputDir(outputDir: string): Promise<void> {
+  await rm(outputDir, { recursive: true, force: true })
+
+  const threadDir = dirname(outputDir)
+  try {
+    const remaining = await readdir(threadDir)
+    if (remaining.length === 0) {
+      await rm(threadDir, { recursive: true, force: true })
+    }
+  } catch {
+    // cleanup failure is non-fatal
+  }
+}
 
 export interface SendTarget {
   send(content: string): Promise<Message>
@@ -47,6 +65,10 @@ export async function respond(
   const startedAt = Date.now()
   let lastRenderedSec = -1
   const abortController = new AbortController()
+  const turnId = randomUUID()
+  const attachmentOutputDir = join(ATTACHMENT_ROOT_DIR, sessionKey, turnId)
+
+  await mkdir(attachmentOutputDir, { recursive: true })
 
   const interval = setInterval(async () => {
     if (!taskManager.isCurrentRevision(sessionKey, revision)) {
@@ -76,6 +98,7 @@ export async function respond(
 
     const result = await adapter.run(prompt, sessionId, {
       cwd: state.getThreadCwd(sessionKey),
+      attachmentOutputDir,
       signal: abortController.signal,
       onChunk: (text) => {
         if (!taskManager.isCurrentRevision(sessionKey, revision)) {
@@ -107,7 +130,25 @@ export async function respond(
     }
     state.setUsage(sessionKey, result)
 
+    if (result.attachments && result.attachments.length > 0) {
+      await thinking.edit('✅添付付きで完了しました')
+
+      const content = truncate(buildCompletedMessage(result.result))
+      if (content.trim()) {
+        await approvalTarget.send(content)
+      }
+
+      await approvalTarget.send({
+        content: `📎 添付ファイル ${result.attachments.length} 件`,
+        files: result.attachments.map((attachment) => attachment.path),
+      })
+
+      await cleanupAttachmentOutputDir(attachmentOutputDir)
+      return
+    }
+
     await thinking.edit(truncate(buildCompletedMessage(result.result)))
+    await cleanupAttachmentOutputDir(attachmentOutputDir)
   } catch (error) {
     clearInterval(interval)
     if (error instanceof DOMException && error.name === 'AbortError') {

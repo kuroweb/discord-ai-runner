@@ -1,8 +1,15 @@
+export interface AiAttachment {
+  path: string
+  name: string
+  size: number
+}
+
 export interface AiResult {
   result: string
   session_id: string
   input_tokens?: number
   output_tokens?: number
+  attachments?: AiAttachment[]
 }
 
 export interface ToolApprovalRequest {
@@ -16,6 +23,7 @@ export interface AiRunOptions {
   onChunk: (text: string) => void
   signal?: AbortSignal
   cwd?: string
+  attachmentOutputDir?: string
   requestApproval?: (
     request: ToolApprovalRequest,
   ) => Promise<ToolApprovalDecision>

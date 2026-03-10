@@ -1,7 +1,12 @@
+import { spawn } from 'child_process'
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import type { AiAdapter, AiRunOptions } from '../types'
+import { collectAttachments } from '../attachments'
+import { renderAttachmentPolicy } from '../../prompts/attachment-policy'
 import type { ClaudeResult } from './types'
 import { appendAssistantText, buildResultFromEvent } from './events'
+
+const ATTACHMENT_ROOT_DIR = '/tmp/discord-ai-runner'
 
 export function createClaudeAdapter(): AiAdapter {
   async function run(
@@ -9,7 +14,9 @@ export function createClaudeAdapter(): AiAdapter {
     sessionId: string | undefined,
     options: AiRunOptions,
   ): Promise<ClaudeResult> {
-    const { onChunk, signal, cwd, requestApproval } = options
+    const { onChunk, signal, cwd, requestApproval, attachmentOutputDir } =
+      options
+    const attachmentPolicy = renderAttachmentPolicy(attachmentOutputDir)
     const readOnlyTools = new Set([
       'Read',
       'Glob',
@@ -26,6 +33,26 @@ export function createClaudeAdapter(): AiAdapter {
       options: {
         cwd: cwd ?? process.cwd(),
         permissionMode: 'default',
+        ...(attachmentPolicy
+          ? {
+              systemPrompt: {
+                type: 'preset' as const,
+                preset: 'claude_code' as const,
+                append: attachmentPolicy,
+              },
+            }
+          : {}),
+        spawnClaudeCodeProcess: (spawnOptions) =>
+          spawn(
+            spawnOptions.command,
+            [...spawnOptions.args, '--add-dir', ATTACHMENT_ROOT_DIR],
+            {
+              cwd: spawnOptions.cwd,
+              env: spawnOptions.env,
+              signal: spawnOptions.signal,
+              stdio: ['pipe', 'pipe', 'pipe'],
+            },
+          ),
         ...(sessionId ? { resume: sessionId } : {}),
         canUseTool: async (
           toolName: string,
@@ -66,17 +93,23 @@ export function createClaudeAdapter(): AiAdapter {
       if (result) finalResult = result
     }
 
-    return (
-      finalResult ?? {
-        result: accumulated,
-        session_id: sessionId ?? '',
-        model: '',
-        input_tokens: 0,
-        output_tokens: 0,
-        context_window: 0,
-        duration_api_ms: 0,
-      }
-    )
+    const attachments = await collectAttachments(attachmentOutputDir)
+
+    return finalResult
+      ? {
+          ...finalResult,
+          attachments,
+        }
+      : {
+          result: accumulated,
+          session_id: sessionId ?? '',
+          model: '',
+          input_tokens: 0,
+          output_tokens: 0,
+          context_window: 0,
+          duration_api_ms: 0,
+          attachments,
+        }
   }
 
   return { run }
