@@ -1,0 +1,17 @@
+{
+  "name": "git-diff-html",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "postinstall": "npm run build"
+  },
+  "dependencies": {
+    "diff2html": "^3.4.52"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2"
+  }
+}

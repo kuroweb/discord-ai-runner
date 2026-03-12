@@ -1,6 +1,6 @@
 const toolingPolicyTemplate = `This repository may include local agent tools under {{agentToolsDir}}.
 Check {{agentToolsDir}}/README.md before implementing equivalent ad-hoc tooling.
-Use each tool's README.md and bin/<tool-name> entrypoint when appropriate.
+Use {{agentToolsDir}}/bin/<tool-name> as the entrypoint for local tools when appropriate.
 Prefer existing tools over ad-hoc shell pipelines.`
 
 export function renderToolingPolicy(agentToolsDir: string | undefined): string {

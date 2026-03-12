@@ -8,7 +8,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "build": "vite build",
+    "build": "vite build && npm run build:agent-tools",
+    "build:agent-tools": "sh scripts/build-agent-tools.sh",
     "start": "node dist/index.cjs"
   },
   "dependencies": {
