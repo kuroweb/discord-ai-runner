@@ -98,11 +98,11 @@ export async function handleSlashCommand(
     const path = interaction.options.getString('path')
     if (!path) {
       await interaction.reply(
-        `📁 現在の cwd: \`${getThreadCwd(channelId, { state })}\``,
+        `📁 現在の作業ディレクトリ: \`${getThreadCwd(channelId, { state })}\``,
       )
       return
     }
 
-    await interaction.reply(setThreadCwd(channelId, path, { state }))
+    await interaction.reply(setThreadCwd(channelId, path, { state, taskManager }))
   }
 }

@@ -22,7 +22,7 @@ export function resetThreadSession(
   state.clearThreadCwd(threadId)
   approvalManager.clearAutoApprove(threadId)
   state.save()
-  return 'セッションと cwd をリセットしました。'
+  return 'セッションと作業ディレクトリをリセットしました。'
 }
 
 export function getThreadStatus(
@@ -46,7 +46,7 @@ export function getThreadCwd(
 export function setThreadCwd(
   threadId: string,
   inputPath: string,
-  dependencies: Pick<ThreadCommandDependencies, 'state'>,
+  dependencies: Pick<ThreadCommandDependencies, 'state' | 'taskManager'>,
 ): string {
   const baseDir = homedir()
   const normalizedInput =
@@ -65,7 +65,14 @@ export function setThreadCwd(
     return `❌ ディレクトリではありません: \`${resolvedPath}\``
   }
 
+  const currentCwd = dependencies.state.getThreadCwd(threadId) ?? process.cwd()
+  if (currentCwd === resolvedPath) {
+    return `📁 このスレッドの作業ディレクトリはすでに \`${resolvedPath}\` です。`
+  }
+
+  dependencies.taskManager.nextRevision(threadId)
+  dependencies.state.clearSession(threadId)
   dependencies.state.setThreadCwd(threadId, resolvedPath)
   dependencies.state.save()
-  return `📁 このスレッドの cwd を \`${resolvedPath}\` に設定しました。`
+  return `📁 このスレッドの作業ディレクトリを \`${resolvedPath}\` に設定しました。変更に合わせて、このスレッドのセッションもリセットしました。`
 }
