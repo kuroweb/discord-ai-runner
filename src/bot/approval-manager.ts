@@ -86,7 +86,9 @@ export function createApprovalManager() {
     if (autoApproveChannels.has(channelId) && !highRisk) return 'approve'
 
     const requestId = randomUUID()
-    await target.send(buildApprovalMessage(requestId, toolName, input, highRisk))
+    await target.send(
+      buildApprovalMessage(requestId, toolName, input, highRisk),
+    )
 
     return new Promise<ToolApprovalDecision>((resolve) => {
       const timer = setTimeout(() => {

@@ -111,10 +111,7 @@ export function createBotState(stateFile: string) {
     return threadParentChannelIds.get(threadId)
   }
 
-  function setThreadParentChannelId(
-    threadId: string,
-    channelId: string,
-  ): void {
+  function setThreadParentChannelId(threadId: string, channelId: string): void {
     threadParentChannelIds.set(threadId, channelId)
   }
 

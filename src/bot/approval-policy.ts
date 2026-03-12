@@ -7,9 +7,11 @@ const HIGH_RISK_BASH_PATTERNS = [
 ].map((pattern) => new RegExp(pattern, 'i'))
 
 const HIGH_RISK_EDIT_REASON_PATTERN = new RegExp(
-  [String.raw`\bdelete\b`, String.raw`\boverwrite\b`, String.raw`\brename\b`].join(
-    '|',
-  ),
+  [
+    String.raw`\bdelete\b`,
+    String.raw`\boverwrite\b`,
+    String.raw`\brename\b`,
+  ].join('|'),
   'i',
 )
 
@@ -24,7 +26,9 @@ export function isHighRiskOperation(
 
   if (toolName === 'Edit') {
     const reason = typeof input.reason === 'string' ? input.reason : ''
-    return Boolean(input.grantRoot) || HIGH_RISK_EDIT_REASON_PATTERN.test(reason)
+    return (
+      Boolean(input.grantRoot) || HIGH_RISK_EDIT_REASON_PATTERN.test(reason)
+    )
   }
 
   return false
