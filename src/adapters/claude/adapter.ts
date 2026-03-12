@@ -2,11 +2,12 @@ import { spawn } from 'child_process'
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import type { AiAdapter, AiRunOptions } from '../types'
 import { collectAttachments } from '../attachments'
-import { renderAttachmentPolicy } from '../../prompts/attachment-policy'
+import {
+  ATTACHMENT_ROOT_DIR,
+  renderSystemPrompt,
+} from '../../bot/prompts/system-prompt'
 import type { ClaudeResult } from './types'
 import { appendAssistantText, buildResultFromEvent } from './events'
-
-const ATTACHMENT_ROOT_DIR = '/tmp/discord-ai-runner'
 
 export function createClaudeAdapter(): AiAdapter {
   async function run(
@@ -16,7 +17,7 @@ export function createClaudeAdapter(): AiAdapter {
   ): Promise<ClaudeResult> {
     const { onChunk, signal, cwd, requestApproval, attachmentOutputDir } =
       options
-    const attachmentPolicy = renderAttachmentPolicy(attachmentOutputDir)
+    const policyAppend = renderSystemPrompt({ attachmentOutputDir })
     const readOnlyTools = new Set([
       'Read',
       'Glob',
@@ -33,12 +34,12 @@ export function createClaudeAdapter(): AiAdapter {
       options: {
         cwd: cwd ?? process.cwd(),
         permissionMode: 'default',
-        ...(attachmentPolicy
+        ...(policyAppend
           ? {
               systemPrompt: {
                 type: 'preset' as const,
                 preset: 'claude_code' as const,
-                append: attachmentPolicy,
+                append: policyAppend,
               },
             }
           : {}),

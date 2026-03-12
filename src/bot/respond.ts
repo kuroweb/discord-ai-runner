@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { mkdir, readdir, rm } from 'fs/promises'
-import { dirname, join } from 'path'
+import { dirname } from 'path'
+import { resolveAttachmentOutputDir } from './prompts/system-prompt'
 import type { Message } from 'discord.js'
 import type { AiAdapter } from '../adapters'
 import type { createBotState } from './state'
@@ -17,7 +18,6 @@ import {
 } from './messages'
 
 const EDIT_INTERVAL_MS = 1500
-const ATTACHMENT_ROOT_DIR = '/tmp/discord-ai-runner'
 
 async function cleanupAttachmentOutputDir(outputDir: string): Promise<void> {
   await rm(outputDir, { recursive: true, force: true })
@@ -67,7 +67,7 @@ export async function respond(
   let lastRenderedSec = -1
   const abortController = new AbortController()
   const turnId = randomUUID()
-  const attachmentOutputDir = join(ATTACHMENT_ROOT_DIR, sessionKey, turnId)
+  const attachmentOutputDir = resolveAttachmentOutputDir(sessionKey, turnId)
 
   await mkdir(attachmentOutputDir, { recursive: true })
 

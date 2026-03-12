@@ -6,7 +6,7 @@ import type {
   ToolApprovalDecision,
 } from '../types'
 import { collectAttachments } from '../attachments'
-import { renderAttachmentPolicy } from '../../prompts/attachment-policy'
+import { buildSystemPrompt } from '../../bot/prompts/system-prompt'
 
 type RequestId = string | number
 
@@ -34,15 +34,6 @@ function buildUserInput(
   prompt: string,
 ): Array<{ type: 'text'; text: string; text_elements: unknown[] }> {
   return [{ type: 'text', text: prompt, text_elements: [] }]
-}
-
-function buildPrompt(
-  prompt: string,
-  attachmentOutputDir: string | undefined,
-): string {
-  const policy = renderAttachmentPolicy(attachmentOutputDir)
-  if (!policy) return prompt
-  return `${policy}\n\n---\n\n${prompt}`
 }
 
 function mapDecision(
@@ -414,7 +405,9 @@ export function createCodexAdapter(): AiAdapter {
       // 3) start turn
       await request('turn/start', {
         threadId: resolvedThreadId,
-        input: buildUserInput(buildPrompt(prompt, attachmentOutputDir)),
+        input: buildUserInput(
+          buildSystemPrompt(prompt, { attachmentOutputDir }),
+        ),
       })
 
       const result = await completed
