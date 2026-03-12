@@ -35,6 +35,8 @@ agent-tools/
 - Ruby: ツール配下の `Gemfile` で管理
 - Node.js: ツール配下の `package.json` で管理
 - 実装言語はツールごとに自由に選んでよい
+- このリポジトリでツールを使う側は、基本的にセットアップ済み環境を前提に `agent-tools/bin/<tool-name>` をそのまま実行してよい
+- セットアップ手順はツールの保守・再構築が必要な場合にだけ参照する
 
 ## Available tools
 
@@ -43,5 +45,6 @@ agent-tools/
 `git diff` を `diff2html` で整形し、HTML に出力する Node.js 製 CLI。
 
 - Entry point: `agent-tools/bin/git-diff-html`
-- Setup: `cd agent-tools/git-diff-html && npm install`
+- Runtime assumption: 通常利用では依存導入済み・ビルド済みを前提とする
+- Maintenance setup: `cd agent-tools/git-diff-html && npm install`
 - Usage: `agent-tools/bin/git-diff-html --output /tmp/diff.html`
