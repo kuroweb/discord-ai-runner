@@ -7,6 +7,7 @@ import type { createBotState } from './state'
 import type { ApprovalMessageTarget } from './approval-manager'
 import type { createThreadTaskManager } from './thread-task-manager'
 import type { createApprovalManager } from './approval-manager'
+import { resolveThreadCwd } from './cwd'
 import {
   buildCompletedMessage,
   buildFailedMessage,
@@ -96,8 +97,9 @@ export async function respond(
       buildProgressMessage(Date.now() - startedAt, latestText),
     )
 
+    const effectiveCwd = resolveThreadCwd(state, sessionKey)
     const result = await adapter.run(prompt, sessionId, {
-      cwd: state.getThreadCwd(sessionKey),
+      cwd: effectiveCwd,
       attachmentOutputDir,
       signal: abortController.signal,
       onChunk: (text) => {

@@ -1,10 +1,13 @@
-import { existsSync, statSync } from 'fs'
-import { homedir } from 'os'
-import { resolve } from 'path'
 import { formatStatus } from './messages'
 import type { createApprovalManager } from './approval-manager'
 import type { createBotState } from './state'
 import type { createThreadTaskManager } from './thread-task-manager'
+import {
+  normalizeDirectoryPath,
+  resolveChannelDefaultCwd,
+  resolveThreadCwd,
+  validateDirectoryPath,
+} from './cwd'
 
 interface ThreadCommandDependencies {
   state: ReturnType<typeof createBotState>
@@ -40,7 +43,7 @@ export function getThreadCwd(
   threadId: string,
   dependencies: Pick<ThreadCommandDependencies, 'state'>,
 ): string {
-  return dependencies.state.getThreadCwd(threadId) ?? process.cwd()
+  return resolveThreadCwd(dependencies.state, threadId)
 }
 
 export function setThreadCwd(
@@ -48,24 +51,13 @@ export function setThreadCwd(
   inputPath: string,
   dependencies: Pick<ThreadCommandDependencies, 'state' | 'taskManager'>,
 ): string {
-  const baseDir = homedir()
-  const normalizedInput =
-    inputPath === '~'
-      ? homedir()
-      : inputPath.startsWith('~/')
-        ? resolve(homedir(), inputPath.slice(2))
-        : inputPath
-  const resolvedPath = resolve(baseDir, normalizedInput)
-
-  if (!existsSync(resolvedPath)) {
-    return `❌ ディレクトリが見つかりません: \`${resolvedPath}\``
+  const resolvedPath = normalizeDirectoryPath(inputPath)
+  const validationError = validateDirectoryPath(resolvedPath)
+  if (validationError) {
+    return validationError
   }
 
-  if (!statSync(resolvedPath).isDirectory()) {
-    return `❌ ディレクトリではありません: \`${resolvedPath}\``
-  }
-
-  const currentCwd = dependencies.state.getThreadCwd(threadId) ?? process.cwd()
+  const currentCwd = getThreadCwd(threadId, dependencies)
   if (currentCwd === resolvedPath) {
     return `📁 このスレッドの作業ディレクトリはすでに \`${resolvedPath}\` です。`
   }
@@ -75,4 +67,32 @@ export function setThreadCwd(
   dependencies.state.setThreadCwd(threadId, resolvedPath)
   dependencies.state.save()
   return `📁 このスレッドの作業ディレクトリを \`${resolvedPath}\` に設定しました。変更に合わせて、このスレッドのセッションもリセットしました。`
+}
+
+export function getChannelDefaultCwd(
+  channelId: string,
+  dependencies: Pick<ThreadCommandDependencies, 'state'>,
+): string {
+  return resolveChannelDefaultCwd(dependencies.state, channelId)
+}
+
+export function setChannelDefaultCwd(
+  channelId: string,
+  inputPath: string,
+  dependencies: Pick<ThreadCommandDependencies, 'state'>,
+): string {
+  const resolvedPath = normalizeDirectoryPath(inputPath)
+  const validationError = validateDirectoryPath(resolvedPath)
+  if (validationError) {
+    return validationError
+  }
+
+  const currentCwd = resolveChannelDefaultCwd(dependencies.state, channelId)
+  if (currentCwd === resolvedPath) {
+    return `📁 このチャンネルのデフォルト作業ディレクトリはすでに \`${resolvedPath}\` です。`
+  }
+
+  dependencies.state.setChannelCwd(channelId, resolvedPath)
+  dependencies.state.save()
+  return `📁 このチャンネルのデフォルト作業ディレクトリを \`${resolvedPath}\` に設定しました。新しく作成されるスレッドで自動的に使われます。`
 }

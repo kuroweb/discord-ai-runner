@@ -6,9 +6,11 @@ import {
   type Client,
 } from 'discord.js'
 import {
+  getChannelDefaultCwd,
   getThreadCwd,
   getThreadStatus,
   resetThreadSession,
+  setChannelDefaultCwd,
   setThreadCwd,
 } from './thread-commands'
 import type { createApprovalManager } from './approval-manager'
@@ -25,7 +27,7 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('cwd')
     .setDescription(
-      '現在のスレッドに紐づく作業ディレクトリを表示または設定します',
+      '現在のスレッドまたはチャンネルの作業ディレクトリを表示または設定します',
     )
     .addStringOption((option) =>
       option
@@ -72,8 +74,10 @@ export async function handleSlashCommand(
 ): Promise<void> {
   const { state, taskManager, approvalManager } = dependencies
   const channelId = interaction.channelId
+  const isManagedThread = state.isActiveThread(channelId)
+  const isThread = interaction.channel?.isThread() ?? false
 
-  if (!state.isActiveThread(channelId)) {
+  if (!isManagedThread && interaction.commandName !== 'cwd') {
     await interaction.reply({
       content:
         'このコマンドは bot が管理しているスレッド内で実行してください。',
@@ -96,13 +100,26 @@ export async function handleSlashCommand(
 
   if (interaction.commandName === 'cwd') {
     const path = interaction.options.getString('path')
-    if (!path) {
-      await interaction.reply(
-        `📁 現在の作業ディレクトリ: \`${getThreadCwd(channelId, { state })}\``,
-      )
+    if (!isManagedThread && isThread) {
+      await interaction.reply({
+        content:
+          'このスレッドは bot の管理対象ではありません。通常チャンネルで実行するとデフォルト作業ディレクトリを設定できます。',
+        flags: ['Ephemeral'],
+      })
       return
     }
 
-    await interaction.reply(setThreadCwd(channelId, path, { state, taskManager }))
+    if (!path) {
+      const content = isManagedThread
+        ? `📁 現在の作業ディレクトリ: \`${getThreadCwd(channelId, { state })}\``
+        : `📁 このチャンネルのデフォルト作業ディレクトリ: \`${getChannelDefaultCwd(channelId, { state })}\``
+      await interaction.reply(content)
+      return
+    }
+
+    const content = isManagedThread
+      ? setThreadCwd(channelId, path, { state, taskManager })
+      : setChannelDefaultCwd(channelId, path, { state })
+    await interaction.reply(content)
   }
 }

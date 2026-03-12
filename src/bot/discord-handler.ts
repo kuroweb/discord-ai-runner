@@ -97,6 +97,14 @@ export function registerMessageHandler(
     const channel = message.channel
 
     if (state.isActiveThread(channel.id)) {
+      if (channel.isThread() && channel.parentId) {
+        const savedParentChannelId = state.getThreadParentChannelId(channel.id)
+        if (savedParentChannelId !== channel.parentId) {
+          state.setThreadParentChannelId(channel.id, channel.parentId)
+          state.save()
+        }
+      }
+
       const prompt = message.content.trim()
       if (!prompt) return
 
@@ -125,7 +133,7 @@ export function registerMessageHandler(
       autoArchiveDuration: 1440,
     })
 
-    state.activateThread(thread.id)
+    state.activateThread(thread.id, message.channelId)
     state.save()
 
     await enqueueResponse(thread.id, prompt, thread, thread, {
