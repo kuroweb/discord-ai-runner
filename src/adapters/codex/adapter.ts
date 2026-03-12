@@ -81,10 +81,15 @@ export function createCodexAdapter(): AiAdapter {
     sessionId: string | undefined,
     options: AiRunOptions,
   ): Promise<AiResult> {
-    const { onChunk, signal, cwd, requestApproval, attachmentOutputDir } =
-      options
+    const {
+      onChunk,
+      signal,
+      cwd = process.cwd(),
+      requestApproval,
+      attachmentOutputDir,
+    } = options
     const proc = spawn('codex', ['app-server', '--listen', 'stdio://'], {
-      cwd: cwd ?? process.cwd(),
+      cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
 
@@ -391,6 +396,7 @@ export function createCodexAdapter(): AiAdapter {
         const resumeResult = await request('thread/resume', {
           threadId: sessionId,
           approvalPolicy: 'untrusted',
+          cwd,
         })
         const resumed = extractThreadId(resumeResult)
         if (resumed) resolvedThreadId = resumed
@@ -399,6 +405,7 @@ export function createCodexAdapter(): AiAdapter {
           approvalPolicy: 'untrusted',
           sandbox: 'workspace-write',
           experimentalRawEvents: false,
+          cwd,
         })
         const started = extractThreadId(startResult)
         if (started) resolvedThreadId = started
