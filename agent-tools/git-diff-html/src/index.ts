@@ -6,8 +6,8 @@ import process from 'node:process'
 import { html as renderDiffHtml } from 'diff2html'
 
 const require = createRequire(import.meta.url)
-const diff2htmlCssPath = require.resolve('diff2html/bundles/css/diff2html.min.css')
-const DEFAULT_UNTRACKED_EXCLUDES = ['node_modules/', 'dist/', '.DS_Store', '*.log']
+const diff2htmlCssPath =
+  require.resolve('diff2html/bundles/css/diff2html.min.css')
 
 type OutputFormat = 'line-by-line' | 'side-by-side'
 
@@ -90,7 +90,9 @@ function resolveRepoPath(repo?: string): string {
   if (repo) return resolve(repo)
   const result = runGit(['rev-parse', '--show-toplevel'], process.cwd())
   if (result.status !== 0) {
-    throw new Error(result.stderr.trim() || 'Failed to resolve git repository root')
+    throw new Error(
+      result.stderr.trim() || 'Failed to resolve git repository root',
+    )
   }
   return result.stdout.trim()
 }
@@ -103,18 +105,6 @@ function runGitDiff(repo: string, diffArgs: string[]): string {
   return result.stdout
 }
 
-function shouldExcludeUntrackedFile(filePath: string): boolean {
-  return DEFAULT_UNTRACKED_EXCLUDES.some((pattern) => {
-    if (pattern.endsWith('/')) {
-      return filePath === pattern.slice(0, -1) || filePath.startsWith(pattern)
-    }
-    if (pattern.startsWith('*')) {
-      return filePath.endsWith(pattern.slice(1))
-    }
-    return filePath === pattern
-  })
-}
-
 function listUntrackedFiles(repo: string): string[] {
   const result = runGit(['ls-files', '--others', '--exclude-standard'], repo)
   if (result.status !== 0) {
@@ -124,7 +114,6 @@ function listUntrackedFiles(repo: string): string[] {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
-    .filter((line) => !shouldExcludeUntrackedFile(line))
 }
 
 function renderUntrackedDiff(repo: string, filePath: string): string {
@@ -133,7 +122,9 @@ function renderUntrackedDiff(repo: string, filePath: string): string {
     repo,
   )
   if (result.status !== 1) {
-    throw new Error(result.stderr.trim() || `Failed to render untracked diff for ${filePath}`)
+    throw new Error(
+      result.stderr.trim() || `Failed to render untracked diff for ${filePath}`,
+    )
   }
   return result.stdout
 }

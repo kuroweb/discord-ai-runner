@@ -37,6 +37,6 @@ agent-tools/bin/git-diff-html --output /tmp/index.html -- --cached src/index.ts
 ## Notes
 
 - `--repo` 未指定時は repo root を基準にし、未追跡ファイルも自動で含める
-- `node_modules/` と `dist/` などの生成物は自動除外する
+- 未追跡ファイルの除外は `git ls-files --others --exclude-standard` に従うため、`.gitignore` などの Git ignore 設定で管理する
 - 出力 HTML は `diff2html` のデフォルト CSS を内包するので単体で開ける
 - セットアップコマンドは、このツール自体を保守・再構築する場合にだけ必要
