@@ -97,9 +97,8 @@ export async function respond(
       buildProgressMessage(Date.now() - startedAt, latestText),
     )
 
-    const effectiveCwd = resolveThreadCwd(state, sessionKey)
     const result = await adapter.run(prompt, sessionId, {
-      cwd: effectiveCwd,
+      cwd: resolveThreadCwd(state, sessionKey),
       attachmentOutputDir,
       signal: abortController.signal,
       onChunk: (text) => {
