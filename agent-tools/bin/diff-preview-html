@@ -3,15 +3,15 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 AGENT_TOOLS_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
-TOOL_DIR="$AGENT_TOOLS_DIR/git-diff-html"
+TOOL_DIR="$AGENT_TOOLS_DIR/diff-preview-html"
 
 if [ ! -d "$TOOL_DIR/node_modules" ]; then
-  echo "git-diff-html is unavailable in this checkout: dependencies are missing." >&2
+  echo "diff-preview-html is unavailable in this checkout: dependencies are missing." >&2
   exit 1
 fi
 
 if [ ! -f "$TOOL_DIR/dist/index.js" ]; then
-  echo "git-diff-html is unavailable in this checkout: build output is missing." >&2
+  echo "diff-preview-html is unavailable in this checkout: build output is missing." >&2
   exit 1
 fi
 

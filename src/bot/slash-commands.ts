@@ -42,7 +42,7 @@ const slashCommands = [
         .setRequired(false),
     ),
   new SlashCommandBuilder()
-    .setName('diff-preview')
+    .setName('diff-preview-html')
     .setDescription('現在の作業ディレクトリの git diff を HTML 添付で返します')
     .addStringOption((option) =>
       option
@@ -68,7 +68,7 @@ async function runGitDiffHtmlCommand(
     resolve(tmpdir(), 'discord-ai-runner-git-diff-'),
   )
   const outputPath = resolve(tempDir, 'git-diff.html')
-  const toolPath = resolve(process.cwd(), 'agent-tools/bin/git-diff-html')
+  const toolPath = resolve(process.cwd(), 'agent-tools/bin/diff-preview-html')
   const toolArgs = ['--output', outputPath, '--repo', cwd]
 
   if (options.file?.trim()) {
@@ -138,7 +138,7 @@ export async function handleSlashCommand(
   if (
     !isManagedThread &&
     interaction.commandName !== 'cwd' &&
-    interaction.commandName !== 'diff-preview'
+    interaction.commandName !== 'diff-preview-html'
   ) {
     await interaction.reply({
       content:
@@ -186,7 +186,7 @@ export async function handleSlashCommand(
     return
   }
 
-  if (interaction.commandName === 'diff-preview') {
+  if (interaction.commandName === 'diff-preview-html') {
     if (!isManagedThread) {
       await interaction.reply({
         content:

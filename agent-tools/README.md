@@ -40,11 +40,11 @@ agent-tools/
 
 ## Available tools
 
-### `git-diff-html`
+### `diff-preview-html`
 
 `git diff` を `diff2html` で整形し、HTML に出力する Node.js 製 CLI。
 
-- Entry point: `agent-tools/bin/git-diff-html`
+- Entry point: `agent-tools/bin/diff-preview-html`
 - Runtime assumption: 通常利用では依存導入済み・ビルド済みを前提とする
-- Maintenance setup: `cd agent-tools/git-diff-html && npm install`
-- Usage: `agent-tools/bin/git-diff-html --output /tmp/diff.html`
+- Maintenance setup: `cd agent-tools/diff-preview-html && npm install`
+- Usage: `agent-tools/bin/diff-preview-html --output /tmp/diff.html`

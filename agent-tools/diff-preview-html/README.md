@@ -1,29 +1,29 @@
-# git-diff-html
+# diff-preview-html
 
 `git diff` を `diff2html` で整形し、静的 HTML として出力する repo-local CLI。
 
 ## Runtime assumption
 
 通常利用では、このツールは依存導入済み・ビルド済みである前提で
-`agent-tools/bin/git-diff-html` を直接実行する。
+`agent-tools/bin/diff-preview-html` を直接実行する。
 
 ## Maintenance setup
 
 ```bash
-cd agent-tools/git-diff-html
+cd agent-tools/diff-preview-html
 npm install
 ```
 
 ## Usage
 
 ```bash
-agent-tools/bin/git-diff-html --output /tmp/diff.html
+agent-tools/bin/diff-preview-html --output /tmp/diff.html
 ```
 
 差分引数をそのまま `git diff` に渡したい場合:
 
 ```bash
-agent-tools/bin/git-diff-html --output /tmp/index.html -- --cached src/index.ts
+agent-tools/bin/diff-preview-html --output /tmp/index.html -- --cached src/index.ts
 ```
 
 ## Options

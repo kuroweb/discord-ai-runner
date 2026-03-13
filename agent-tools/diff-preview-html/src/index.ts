@@ -20,12 +20,12 @@ interface CliOptions {
 }
 
 function printHelp(): void {
-  console.log(`git-diff-html
+  console.log(`diff-preview-html
 
 Render git diff output to a standalone HTML file.
 
 Usage:
-  git-diff-html [options] [-- <git diff args...>]
+  diff-preview-html [options] [-- <git diff args...>]
 
 Options:
   -o, --output <path>                         Output HTML path (default: ./git-diff.html)

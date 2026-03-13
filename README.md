@@ -97,7 +97,7 @@ npm run start
 `agent-tools/` は、Bot 本体とは分離した repo-local CLI 群の置き場。
 エージェントは必要に応じて `agent-tools/README.md` を確認し、`agent-tools/bin/<tool-name>` を直接実行する。
 
-最初のサンプルとして `agent-tools/git-diff-html/` を含む。
+最初のサンプルとして `agent-tools/diff-preview-html/` を含む。
 
 ## launchd 運用セットアップ
 
