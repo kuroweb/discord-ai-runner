@@ -34,6 +34,23 @@ export function truncate(text: string): string {
     : text
 }
 
+/** ストリーム中に末尾（最新）を表示する。2000文字超は先頭を省略 */
+export function truncateTail(text: string): string {
+  if (text.length <= DISCORD_MAX_LENGTH) return text
+  const prefix = '…(先頭省略)\n'
+  return prefix + text.slice(-(DISCORD_MAX_LENGTH - prefix.length))
+}
+
+/** 2000文字超のテキストを Discord 送信用にチャンク分割 */
+export function splitIntoChunks(text: string): string[] {
+  if (text.length <= DISCORD_MAX_LENGTH) return [text]
+  const chunks: string[] = []
+  for (let i = 0; i < text.length; i += DISCORD_MAX_LENGTH) {
+    chunks.push(text.slice(i, i + DISCORD_MAX_LENGTH))
+  }
+  return chunks
+}
+
 export function asQuote(text: string): string {
   return text
     .split('\n')

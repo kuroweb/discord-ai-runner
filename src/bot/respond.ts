@@ -14,7 +14,9 @@ import {
   buildFailedMessage,
   buildInterruptedMessage,
   buildProgressMessage,
+  splitIntoChunks,
   truncate,
+  truncateTail,
 } from './messages'
 
 const EDIT_INTERVAL_MS = 1500
@@ -85,7 +87,7 @@ export async function respond(
 
     try {
       await thinking.edit(
-        truncate(buildProgressMessage(Date.now() - startedAt, latestText)),
+        truncateTail(buildProgressMessage(Date.now() - startedAt, latestText)),
       )
     } catch {
       // 編集失敗は無視
@@ -94,7 +96,7 @@ export async function respond(
 
   try {
     await thinking.edit(
-      buildProgressMessage(Date.now() - startedAt, latestText),
+      truncateTail(buildProgressMessage(Date.now() - startedAt, latestText)),
     )
 
     const result = await adapter.run(prompt, sessionId, {
@@ -121,7 +123,12 @@ export async function respond(
     clearInterval(interval)
 
     if (!taskManager.isCurrentRevision(sessionKey, revision)) {
-      await thinking.edit(truncate(buildInterruptedMessage(latestText)))
+      await thinking.edit(buildInterruptedMessage(''))
+      if (latestText.trim()) {
+        for (const chunk of splitIntoChunks(latestText)) {
+          await approvalTarget.send(chunk)
+        }
+      }
       return
     }
 
@@ -134,9 +141,11 @@ export async function respond(
     if (result.attachments && result.attachments.length > 0) {
       await thinking.edit('✅添付付きで完了しました')
 
-      const content = truncate(buildCompletedMessage(result.result))
+      const content = buildCompletedMessage(result.result)
       if (content.trim()) {
-        await approvalTarget.send(content)
+        for (const chunk of splitIntoChunks(content)) {
+          await approvalTarget.send(chunk)
+        }
       }
 
       await approvalTarget.send({
@@ -148,12 +157,23 @@ export async function respond(
       return
     }
 
-    await thinking.edit(truncate(buildCompletedMessage(result.result)))
+    const completedContent = buildCompletedMessage(result.result)
+    await thinking.edit('✅完了')
+    if (completedContent.trim()) {
+      for (const chunk of splitIntoChunks(completedContent)) {
+        await approvalTarget.send(chunk)
+      }
+    }
     await cleanupAttachmentOutputDir(attachmentOutputDir)
   } catch (error) {
     clearInterval(interval)
     if (error instanceof DOMException && error.name === 'AbortError') {
-      await thinking.edit(truncate(buildInterruptedMessage(latestText)))
+      await thinking.edit(buildInterruptedMessage(''))
+      if (latestText.trim()) {
+        for (const chunk of splitIntoChunks(latestText)) {
+          await approvalTarget.send(chunk)
+        }
+      }
       return
     }
     const message = error instanceof Error ? error.message : String(error)
