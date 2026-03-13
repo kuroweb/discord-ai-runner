@@ -1,6 +1,6 @@
 import { isClaudeResult, type AiResult } from '../adapters'
 
-const DISCORD_MAX_LENGTH = 2000
+export const DISCORD_MAX_LENGTH = 2000
 const DISCORD_THREAD_NAME_MAX_LENGTH = 100
 
 export function formatStatus(result: AiResult): string {
@@ -47,6 +47,54 @@ export function splitIntoChunks(text: string): string[] {
   const chunks: string[] = []
   for (let i = 0; i < text.length; i += DISCORD_MAX_LENGTH) {
     chunks.push(text.slice(i, i + DISCORD_MAX_LENGTH))
+  }
+  return chunks
+}
+
+const CODE_BLOCK_OPEN = '```'
+const CODE_BLOCK_CLOSE = '\n```'
+
+/**
+ * Markdown のコードブロックをチャンク内で完結させる分割。
+ * Discord 2000 文字制限を守りつつ、各チャンクは必ず ``` で閉じた有効なコードブロックになる。
+ * コード内容は途中で途切れてもよい（プレビュー優先）。
+ *
+ * @param text - 分割対象（```lang\n...\n``` 形式を想定）
+ * @param maxLen - 1チャンクの最大文字数
+ * @param prefix - 先頭チャンクに付けるプレフィックス（省略可）
+ */
+export function splitMarkdownCodeBlocksForDiscord(
+  text: string,
+  maxLen: number = DISCORD_MAX_LENGTH,
+  prefix: string = '',
+): string[] {
+  const prefixPart = prefix ? prefix.trimEnd() + '\n\n' : ''
+  const withPrefix = prefixPart + text
+  if (withPrefix.length <= maxLen) return [withPrefix]
+
+  const match = text.match(/^```(\w*)\n([\s\S]*?)```\s*$/s)
+  if (!match) {
+    return splitIntoChunks(withPrefix)
+  }
+
+  const [, lang, content] = match
+  const langPart = lang || 'diff'
+  const openTag = `${CODE_BLOCK_OPEN}${langPart}\n`
+  const closeTag = CODE_BLOCK_CLOSE
+  const overhead = openTag.length + closeTag.length
+  const firstContentMax = prefixPart
+    ? maxLen - prefixPart.length - overhead
+    : maxLen - overhead
+  const contentMax = maxLen - overhead
+
+  if (content.length <= firstContentMax) return [withPrefix]
+
+  const chunks: string[] = []
+  chunks.push(
+    prefixPart + openTag + content.slice(0, firstContentMax) + closeTag,
+  )
+  for (let i = firstContentMax; i < content.length; i += contentMax) {
+    chunks.push(openTag + content.slice(i, i + contentMax) + closeTag)
   }
   return chunks
 }

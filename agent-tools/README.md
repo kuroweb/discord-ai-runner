@@ -48,3 +48,12 @@ agent-tools/
 - Runtime assumption: 通常利用では依存導入済み・ビルド済みを前提とする
 - Maintenance setup: `cd agent-tools/diff-preview-html && npm install`
 - Usage: `agent-tools/bin/diff-preview-html --output /tmp/diff.html`
+
+### `diff-preview-markdown`
+
+`git diff` を Markdown コードブロック形式で stdout に出力する Node.js 製 CLI。
+
+- Entry point: `agent-tools/bin/diff-preview-markdown`
+- Runtime assumption: 通常利用では依存導入済み・ビルド済みを前提とする
+- Maintenance setup: `cd agent-tools/diff-preview-markdown && npm install`
+- Usage: `agent-tools/bin/diff-preview-markdown --repo /path/to/repo [-- <git diff args...>]`

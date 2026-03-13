@@ -5,10 +5,14 @@ import {
   type ChatInputCommandInteraction,
   type Client,
 } from 'discord.js'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
+import {
+  DISCORD_MAX_LENGTH,
+  splitMarkdownCodeBlocksForDiscord,
+} from './messages'
 import {
   getChannelDefaultCwd,
   getThreadCwd,
@@ -44,6 +48,17 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('diff-preview-html')
     .setDescription('現在の作業ディレクトリの git diff を HTML 添付で返します')
+    .addStringOption((option) =>
+      option
+        .setName('file')
+        .setDescription('特定のファイルだけ見たいときの相対パス')
+        .setRequired(false),
+    ),
+  new SlashCommandBuilder()
+    .setName('diff-preview-markdown')
+    .setDescription(
+      '現在の作業ディレクトリの git diff を Markdown コードブロックで返します',
+    )
     .addStringOption((option) =>
       option
         .setName('file')
@@ -103,6 +118,30 @@ async function runGitDiffHtmlCommand(
   return { outputPath, tempDir }
 }
 
+async function runGitDiffMarkdownCommand(
+  cwd: string,
+  options: { file?: string | null },
+): Promise<string> {
+  const toolPath = resolve(process.cwd(), 'agent-tools/bin/diff-preview-markdown')
+  const toolArgs = ['--repo', cwd]
+  if (options.file?.trim()) {
+    toolArgs.push('--', options.file.trim())
+  }
+
+  const result = spawnSync(toolPath, toolArgs, {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 10 * 1024 * 1024,
+  })
+
+  if (result.status !== 0) {
+    throw new Error(
+      result.stderr?.trim() || 'プレビューの生成に失敗しました。',
+    )
+  }
+  return result.stdout ?? ''
+}
+
 export async function registerSlashCommands(
   client: Client,
   token: string,
@@ -138,7 +177,8 @@ export async function handleSlashCommand(
   if (
     !isManagedThread &&
     interaction.commandName !== 'cwd' &&
-    interaction.commandName !== 'diff-preview-html'
+    interaction.commandName !== 'diff-preview-html' &&
+    interaction.commandName !== 'diff-preview-markdown'
   ) {
     await interaction.reply({
       content:
@@ -221,6 +261,45 @@ export async function handleSlashCommand(
       if (tempDir) {
         await rm(tempDir, { recursive: true, force: true })
       }
+    }
+  }
+
+  if (interaction.commandName === 'diff-preview-markdown') {
+    if (!isManagedThread) {
+      await interaction.reply({
+        content:
+          'このコマンドは bot が管理しているスレッド内で実行してください。',
+        flags: ['Ephemeral'],
+      })
+      return
+    }
+
+    await interaction.deferReply()
+
+    try {
+      const cwd = getThreadCwd(channelId, { state })
+      const file = interaction.options.getString('file')
+      const markdown = await runGitDiffMarkdownCommand(cwd, { file })
+      const header = file?.trim()
+        ? `📋 \`${file.trim()}\` の git diff`
+        : `📋 \`${cwd}\` の git diff`
+      const chunks = splitMarkdownCodeBlocksForDiscord(
+        markdown,
+        DISCORD_MAX_LENGTH,
+        header,
+      )
+
+      await interaction.editReply({ content: chunks[0] })
+
+      for (let i = 1; i < chunks.length; i += 1) {
+        await interaction.followUp({ content: chunks[i] })
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'プレビューの生成に失敗しました。'
+      await interaction.editReply(`❌ ${message}`)
     }
   }
 }
