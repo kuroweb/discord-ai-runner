@@ -42,7 +42,7 @@ const slashCommands = [
         .setRequired(false),
     ),
   new SlashCommandBuilder()
-    .setName('git-diff-html')
+    .setName('diff-preview')
     .setDescription('現在の作業ディレクトリの git diff を HTML 添付で返します')
     .addStringOption((option) =>
       option
@@ -95,7 +95,7 @@ async function runGitDiffHtmlCommand(
       }
 
       rejectPromise(
-        new Error(stderr.trim() || 'git-diff-html の実行に失敗しました。'),
+        new Error(stderr.trim() || 'プレビューの生成に失敗しました。'),
       )
     })
   })
@@ -138,7 +138,7 @@ export async function handleSlashCommand(
   if (
     !isManagedThread &&
     interaction.commandName !== 'cwd' &&
-    interaction.commandName !== 'git-diff-html'
+    interaction.commandName !== 'diff-preview'
   ) {
     await interaction.reply({
       content:
@@ -186,7 +186,7 @@ export async function handleSlashCommand(
     return
   }
 
-  if (interaction.commandName === 'git-diff-html') {
+  if (interaction.commandName === 'diff-preview') {
     if (!isManagedThread) {
       await interaction.reply({
         content:
@@ -215,7 +215,7 @@ export async function handleSlashCommand(
       const message =
         error instanceof Error
           ? error.message
-          : 'git-diff-html の実行に失敗しました。'
+          : 'プレビューの生成に失敗しました。'
       await interaction.editReply(`❌ ${message}`)
     } finally {
       if (tempDir) {
