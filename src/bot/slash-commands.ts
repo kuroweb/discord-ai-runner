@@ -19,6 +19,7 @@ import {
   splitMarkdownCodeBlocksForDiscord,
 } from './messages'
 import {
+  closeThread,
   getChannelDefaultCwd,
   getThreadCwd,
   getThreadStatus,
@@ -49,6 +50,9 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('reset')
     .setDescription('現在のスレッドのセッションをリセットします'),
+  new SlashCommandBuilder()
+    .setName('close')
+    .setDescription('現在のスレッドを閉じます'),
   new SlashCommandBuilder()
     .setName('cwd')
     .setDescription(
@@ -319,6 +323,15 @@ export async function handleSlashCommand(
     await interaction.reply(
       resetThreadSession(channelId, { state, taskManager, approvalManager }),
     )
+    return
+  }
+
+  if (interaction.commandName === 'close') {
+    const summary = closeThread(channelId, { state, taskManager, approvalManager })
+    await interaction.reply(summary)
+    if (interaction.channel?.isThread()) {
+      await interaction.channel.setArchived(true)
+    }
     return
   }
 

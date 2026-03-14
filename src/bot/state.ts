@@ -117,6 +117,14 @@ export function createBotState(stateFile: string) {
     threadChannelIds.set(threadId, channelId)
   }
 
+  function closeThread(threadId: string): void {
+    activeThreads.delete(threadId)
+    sessions.delete(threadId)
+    threadCwds.delete(threadId)
+    threadChannelIds.delete(threadId)
+    threadUsage.delete(threadId)
+  }
+
   function getUsage(threadId: string): AiResult | undefined {
     return threadUsage.get(threadId)
   }
@@ -141,6 +149,7 @@ export function createBotState(stateFile: string) {
     clearChannelCwd,
     getThreadChannelId,
     setThreadChannelId,
+    closeThread,
     getUsage,
     setUsage,
   }

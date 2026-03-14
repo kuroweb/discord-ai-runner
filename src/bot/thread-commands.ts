@@ -28,6 +28,23 @@ export function resetThreadSession(
   return 'セッションと作業ディレクトリをリセットしました。'
 }
 
+export function closeThread(
+  threadId: string,
+  dependencies: ThreadCommandDependencies,
+): string {
+  const { state, taskManager, approvalManager } = dependencies
+
+  const lines = ['🔒 スレッドを閉じました。', '']
+  lines.push(`📁 作業ディレクトリ: \`${resolveThreadCwd(state, threadId)}\``)
+  const sessionId = state.getSession(threadId)
+  if (sessionId) lines.push(`📚 セッション: \`${sessionId}\``)
+  taskManager.nextRevision(threadId)
+  approvalManager.clearAutoApprove(threadId)
+  state.closeThread(threadId)
+  state.save()
+  return lines.join('\n')
+}
+
 export function getThreadStatus(
   threadId: string,
   dependencies: Pick<ThreadCommandDependencies, 'state'>,
