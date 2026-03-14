@@ -1,5 +1,5 @@
 import { spawn } from 'child_process'
-import { query } from '@anthropic-ai/claude-agent-sdk'
+import { listSessions, query } from '@anthropic-ai/claude-agent-sdk'
 import type { AiAdapter, AiRunOptions } from '../types'
 import { collectAttachments } from '../attachments'
 import {
@@ -113,5 +113,23 @@ export function createClaudeAdapter(): AiAdapter {
         }
   }
 
-  return { run }
+  async function listClaudeSessions(
+    cwd: string,
+    options?: { limit?: number },
+  ) {
+    const sessions = await listSessions({
+      dir: cwd,
+      limit: options?.limit ?? 10,
+    })
+
+    return sessions.map((session) => ({
+      id: session.sessionId,
+      summary: session.summary,
+      lastModified: session.lastModified,
+      gitBranch: session.gitBranch,
+      cwd: session.cwd,
+    }))
+  }
+
+  return { run, listSessions: listClaudeSessions }
 }

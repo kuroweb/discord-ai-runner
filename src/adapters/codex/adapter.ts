@@ -3,6 +3,7 @@ import type {
   AiAdapter,
   AiResult,
   AiRunOptions,
+  AiSessionSummary,
   ToolApprovalDecision,
 } from '../types'
 import { collectAttachments } from '../attachments'
@@ -26,6 +27,18 @@ interface PendingRequest {
   resolve: (result: unknown) => void
   reject: (error: Error) => void
   timer: NodeJS.Timeout
+}
+
+interface CodexThreadListResponse {
+  data?: Array<{
+    id?: string
+    preview?: string
+    updatedAt?: number
+    cwd?: string
+    gitInfo?: {
+      branch?: string
+    } | null
+  }>
 }
 
 const REQUEST_TIMEOUT_MS = 30_000
@@ -64,6 +77,25 @@ function extractTurnUsage(notificationParams: unknown): {
     input: total?.inputTokens,
     output: total?.outputTokens,
   }
+}
+
+function summarizeCodexPreview(preview: string): string {
+  const trimmed = preview.trim()
+  if (!trimmed) return ''
+
+  const body = trimmed.includes('\n---\n')
+    ? trimmed.split('\n---\n').pop() ?? trimmed
+    : trimmed
+
+  const firstLine =
+    body
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.length > 0) ?? ''
+
+  const normalized = firstLine.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= 120) return normalized
+  return `${normalized.slice(0, 117)}...`
 }
 
 export function createCodexAdapter(): AiAdapter {
@@ -417,5 +449,133 @@ export function createCodexAdapter(): AiAdapter {
     }
   }
 
-  return { run }
+  async function listCodexSessions(
+    cwd: string,
+    options?: { limit?: number },
+  ): Promise<AiSessionSummary[]> {
+    const proc = spawn('codex', ['app-server', '--listen', 'stdio://'], {
+      cwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+
+    let nextId = 1
+    const pending = new Map<RequestId, PendingRequest>()
+    let lineBuffer = ''
+
+    function rejectAll(err: Error): void {
+      for (const request of pending.values()) {
+        clearTimeout(request.timer)
+        request.reject(err)
+      }
+      pending.clear()
+    }
+
+    function send(message: object): void {
+      proc.stdin.write(`${JSON.stringify(message)}\n`)
+    }
+
+    function request(method: string, params: unknown): Promise<unknown> {
+      const id = nextId++
+      send({ id, method, params } satisfies JsonRpcRequest)
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pending.delete(id)
+          reject(new Error(`request timeout: ${method}`))
+        }, REQUEST_TIMEOUT_MS)
+        pending.set(id, { resolve, reject, timer })
+      })
+    }
+
+    proc.on('error', (err) => {
+      rejectAll(err instanceof Error ? err : new Error(String(err)))
+    })
+
+    proc.stdout.on('data', (data: Buffer) => {
+      lineBuffer += data.toString()
+      const lines = lineBuffer.split('\n')
+      lineBuffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+        let message: any
+        try {
+          message = JSON.parse(line)
+        } catch {
+          continue
+        }
+
+        if (
+          message?.id !== undefined &&
+          (Object.prototype.hasOwnProperty.call(message, 'result') ||
+            Object.prototype.hasOwnProperty.call(message, 'error'))
+        ) {
+          const pendingReq = pending.get(message.id)
+          if (!pendingReq) continue
+          pending.delete(message.id)
+          clearTimeout(pendingReq.timer)
+          if (message.error) {
+            pendingReq.reject(
+              new Error(
+                typeof message.error?.message === 'string'
+                  ? message.error.message
+                  : 'JSON-RPC error',
+              ),
+            )
+          } else {
+            pendingReq.resolve((message as JsonRpcResponse).result)
+          }
+          continue
+        }
+
+        if (typeof message?.method === 'string' && message?.id !== undefined) {
+          send({ id: message.id, result: {} })
+        }
+      }
+    })
+
+    proc.stderr.on('data', (data: Buffer) => {
+      const text = data.toString().trim()
+      if (text) {
+        console.error('[codex-app-server] stderr:', text)
+      }
+    })
+
+    try {
+      await request('initialize', {
+        clientInfo: {
+          name: 'discord-ai-runner',
+          title: 'discord-ai-runner',
+          version: '0.1.0',
+        },
+        capabilities: {
+          experimentalApi: false,
+        },
+      })
+
+      const result = (await request('thread/list', {
+        cwd,
+        limit: options?.limit ?? 10,
+      })) as CodexThreadListResponse
+
+      return (result.data ?? [])
+        .filter((thread): thread is NonNullable<typeof thread> & { id: string } =>
+          typeof thread?.id === 'string' && thread.id.length > 0,
+        )
+        .map((thread) => ({
+          id: thread.id,
+          summary: summarizeCodexPreview(thread.preview ?? '') || '（タイトルなし）',
+          lastModified:
+            typeof thread.updatedAt === 'number'
+              ? thread.updatedAt * 1000
+              : undefined,
+          gitBranch: thread.gitInfo?.branch,
+          cwd: thread.cwd,
+        }))
+    } finally {
+      rejectAll(new Error('codex app-server closed'))
+      proc.kill()
+    }
+  }
+
+  return { run, listSessions: listCodexSessions }
 }

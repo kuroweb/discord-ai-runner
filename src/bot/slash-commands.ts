@@ -9,6 +9,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
+import type { AiAdapter } from '../adapters'
 import {
   DISCORD_MAX_LENGTH,
   splitMarkdownCodeBlocksForDiscord,
@@ -26,6 +27,18 @@ import type { createBotState } from './state'
 import type { createThreadTaskManager } from './thread-task-manager'
 
 const slashCommands = [
+  new SlashCommandBuilder()
+    .setName('sessions')
+    .setDescription('現在の作業ディレクトリのセッション一覧を表示します'),
+  new SlashCommandBuilder()
+    .setName('session')
+    .setDescription('現在のセッションを表示または切り替えます')
+    .addStringOption((option) =>
+      option
+        .setName('id')
+        .setDescription('切り替えたい session id。未指定なら現在値を表示します')
+        .setRequired(false),
+    ),
   new SlashCommandBuilder()
     .setName('status')
     .setDescription('現在のスレッドの利用状況を表示します'),
@@ -68,9 +81,38 @@ const slashCommands = [
 ].map((command) => command.toJSON())
 
 interface SlashCommandDependencies {
+  adapter: AiAdapter
   state: ReturnType<typeof createBotState>
   taskManager: ReturnType<typeof createThreadTaskManager>
   approvalManager: ReturnType<typeof createApprovalManager>
+}
+
+function formatSessionList(
+  cwd: string,
+  currentSessionId: string | undefined,
+  sessions: Awaited<
+    ReturnType<NonNullable<AiAdapter['listSessions']>>
+  >,
+): string {
+  const lines = [`cwd: ${cwd}`]
+
+  if (sessions.length === 0) {
+    lines.push('(no sessions)')
+    return `📚 セッション一覧\n\`\`\`text\n${lines.join('\n')}\n\`\`\``
+  }
+
+  for (const session of sessions) {
+    const marker = session.id === currentSessionId ? '*' : ' '
+    const summary = session.summary.trim() || '（タイトルなし）'
+    const branch = session.gitBranch ? ` · ${session.gitBranch}` : ''
+    const updated =
+      typeof session.lastModified === 'number'
+        ? ` · ${new Date(session.lastModified).toLocaleString('ja-JP')}`
+        : ''
+    lines.push(`${marker} ${session.id} ${summary}${branch}${updated}`)
+  }
+
+  return `📚 セッション一覧\n\`\`\`text\n${lines.join('\n')}\n\`\`\``
 }
 
 async function runGitDiffHtmlCommand(
@@ -169,7 +211,7 @@ export async function handleSlashCommand(
   interaction: ChatInputCommandInteraction,
   dependencies: SlashCommandDependencies,
 ): Promise<void> {
-  const { state, taskManager, approvalManager } = dependencies
+  const { adapter, state, taskManager, approvalManager } = dependencies
   const channelId = interaction.channelId
   const isManagedThread = state.isActiveThread(channelId)
   const isThread = interaction.channel?.isThread() ?? false
@@ -177,6 +219,7 @@ export async function handleSlashCommand(
   if (
     !isManagedThread &&
     interaction.commandName !== 'cwd' &&
+    interaction.commandName !== 'sessions' &&
     interaction.commandName !== 'diff-preview-html' &&
     interaction.commandName !== 'diff-preview-markdown'
   ) {
@@ -190,6 +233,50 @@ export async function handleSlashCommand(
 
   if (interaction.commandName === 'status') {
     await interaction.reply(getThreadStatus(channelId, { state }))
+    return
+  }
+
+  if (interaction.commandName === 'session') {
+    const sessionId = interaction.options.getString('id')?.trim()
+    if (!sessionId) {
+      const currentSessionId = state.getSession(channelId)
+      await interaction.reply(
+        currentSessionId
+          ? `📚 現在のセッション: \`${currentSessionId}\``
+          : '📚 現在のセッションはありません。',
+      )
+      return
+    }
+
+    taskManager.nextRevision(channelId)
+    state.clearSession(channelId)
+    state.setSession(channelId, sessionId)
+    approvalManager.clearAutoApprove(channelId)
+    state.save()
+    await interaction.reply(`📚 セッションを \`${sessionId}\` に切り替えました。`)
+    return
+  }
+
+  if (interaction.commandName === 'sessions') {
+    if (!adapter.listSessions) {
+      await interaction.reply('❌ この AI adapter は `/sessions` に未対応です。')
+      return
+    }
+
+    await interaction.deferReply()
+
+    try {
+      const cwd = getThreadCwd(channelId, { state })
+      const sessions = await adapter.listSessions(cwd, { limit: 10 })
+      const content = formatSessionList(cwd, state.getSession(channelId), sessions)
+      await interaction.editReply(content)
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'セッション一覧の取得に失敗しました。'
+      await interaction.editReply(`❌ ${message}`)
+    }
     return
   }
 

@@ -7,5 +7,5 @@ export function createAdapter(name: string): AiAdapter {
   return createClaudeAdapter()
 }
 
-export type { AiResult, AiAdapter } from './types'
+export type { AiResult, AiAdapter, AiSessionSummary } from './types'
 export { type ClaudeResult, isClaudeResult } from './claude/index'

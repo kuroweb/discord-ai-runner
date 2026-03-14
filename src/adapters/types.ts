@@ -12,6 +12,14 @@ export interface AiResult {
   attachments?: AiAttachment[]
 }
 
+export interface AiSessionSummary {
+  id: string
+  summary: string
+  lastModified?: number
+  gitBranch?: string
+  cwd?: string
+}
+
 export interface ToolApprovalRequest {
   toolName: string
   input: Record<string, unknown>
@@ -35,4 +43,8 @@ export interface AiAdapter {
     sessionId: string | undefined,
     options: AiRunOptions,
   ): Promise<AiResult>
+  listSessions?(
+    cwd: string,
+    options?: { limit?: number },
+  ): Promise<AiSessionSummary[]>
 }

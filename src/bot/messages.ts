@@ -1,5 +1,4 @@
 import { isClaudeResult, type AiResult } from '../adapters'
-
 export const DISCORD_MAX_LENGTH = 2000
 const DISCORD_THREAD_NAME_MAX_LENGTH = 100
 
