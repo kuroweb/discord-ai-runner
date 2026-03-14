@@ -81,7 +81,9 @@ export async function respond(
   const startedAt = Date.now()
   let lastRenderedSec = -1
   const abortController = new AbortController()
-  signal.addEventListener('abort', () => abortController.abort(), { once: true })
+  signal.addEventListener('abort', () => abortController.abort(), {
+    once: true,
+  })
   const turnId = randomUUID()
   const attachmentOutputDir = resolveAttachmentOutputDir(sessionKey, turnId)
 
@@ -101,7 +103,9 @@ export async function respond(
 
     try {
       await thinking.edit({
-        content: truncateTail(buildProgressMessage(Date.now() - startedAt, latestText)),
+        content: truncateTail(
+          buildProgressMessage(Date.now() - startedAt, latestText),
+        ),
         components: [cancelRow],
       })
     } catch {
@@ -111,7 +115,9 @@ export async function respond(
 
   try {
     await thinking.edit({
-      content: truncateTail(buildProgressMessage(Date.now() - startedAt, latestText)),
+      content: truncateTail(
+        buildProgressMessage(Date.now() - startedAt, latestText),
+      ),
       components: [cancelRow],
     })
 
@@ -135,7 +141,10 @@ export async function respond(
     clearInterval(interval)
 
     if (signal.aborted) {
-      await thinking.edit({ content: buildInterruptedMessage(''), components: [] })
+      await thinking.edit({
+        content: buildInterruptedMessage(''),
+        components: [],
+      })
       if (latestText.trim()) {
         for (const chunk of splitIntoChunks(latestText)) {
           await approvalTarget.send(chunk)
@@ -151,7 +160,10 @@ export async function respond(
     state.setUsage(sessionKey, result)
 
     if (result.attachments && result.attachments.length > 0) {
-      await thinking.edit({ content: '✅添付付きで完了しました', components: [] })
+      await thinking.edit({
+        content: '✅添付付きで完了しました',
+        components: [],
+      })
 
       const content = buildCompletedMessage(result.result)
       if (content.trim()) {
@@ -180,7 +192,10 @@ export async function respond(
   } catch (error) {
     clearInterval(interval)
     if (error instanceof DOMException && error.name === 'AbortError') {
-      await thinking.edit({ content: buildInterruptedMessage(''), components: [] })
+      await thinking.edit({
+        content: buildInterruptedMessage(''),
+        components: [],
+      })
       if (latestText.trim()) {
         for (const chunk of splitIntoChunks(latestText)) {
           await approvalTarget.send(chunk)
@@ -189,6 +204,9 @@ export async function respond(
       return
     }
     const message = error instanceof Error ? error.message : String(error)
-    await thinking.edit({ content: truncate(buildFailedMessage(message)), components: [] })
+    await thinking.edit({
+      content: truncate(buildFailedMessage(message)),
+      components: [],
+    })
   }
 }
