@@ -1,12 +1,15 @@
 import { readFileSync, writeFileSync } from 'fs'
 import type { AiResult } from '../adapters'
 
+interface PersistedThread {
+  sessionId?: string
+  cwd?: string
+  channelId?: string
+}
+
 interface PersistedState {
-  activeThreads: string[]
-  sessions: Record<string, string>
-  threadCwds: Record<string, string>
-  channelCwds: Record<string, string>
-  threadParentChannelIds: Record<string, string>
+  threads: Record<string, PersistedThread>
+  channels: Record<string, { cwd: string }>
 }
 
 export function createBotState(stateFile: string) {
@@ -14,31 +17,24 @@ export function createBotState(stateFile: string) {
   const sessions = new Map<string, string>()
   const threadCwds = new Map<string, string>()
   const channelCwds = new Map<string, string>()
-  const threadParentChannelIds = new Map<string, string>()
+  const threadChannelIds = new Map<string, string>()
   const threadUsage = new Map<string, AiResult>()
 
   function load(): void {
     try {
       const data = readFileSync(stateFile, 'utf-8')
       const state: PersistedState = JSON.parse(data)
-      for (const id of state.activeThreads ?? []) {
-        activeThreads.add(id)
+      for (const [threadId, thread] of Object.entries(state.threads ?? {})) {
+        activeThreads.add(threadId)
+        if (thread.sessionId) sessions.set(threadId, thread.sessionId)
+        if (thread.cwd) threadCwds.set(threadId, thread.cwd)
+        if (thread.channelId)
+          threadChannelIds.set(threadId, thread.channelId)
       }
-      for (const [threadId, sessionId] of Object.entries(
-        state.sessions ?? {},
+      for (const [channelId, channel] of Object.entries(
+        state.channels ?? {},
       )) {
-        sessions.set(threadId, sessionId)
-      }
-      for (const [threadId, cwd] of Object.entries(state.threadCwds ?? {})) {
-        threadCwds.set(threadId, cwd)
-      }
-      for (const [channelId, cwd] of Object.entries(state.channelCwds ?? {})) {
-        channelCwds.set(channelId, cwd)
-      }
-      for (const [threadId, channelId] of Object.entries(
-        state.threadParentChannelIds ?? {},
-      )) {
-        threadParentChannelIds.set(threadId, channelId)
+        channelCwds.set(channelId, channel.cwd)
       }
       console.log(
         `[state] 復元: threads=${activeThreads.size}, sessions=${sessions.size}`,
@@ -49,13 +45,19 @@ export function createBotState(stateFile: string) {
   }
 
   function save(): void {
-    const state: PersistedState = {
-      activeThreads: [...activeThreads],
-      sessions: Object.fromEntries(sessions),
-      threadCwds: Object.fromEntries(threadCwds),
-      channelCwds: Object.fromEntries(channelCwds),
-      threadParentChannelIds: Object.fromEntries(threadParentChannelIds),
+    const threads: Record<string, PersistedThread> = {}
+    for (const threadId of activeThreads) {
+      threads[threadId] = {
+        sessionId: sessions.get(threadId),
+        cwd: threadCwds.get(threadId),
+        channelId: threadChannelIds.get(threadId),
+      }
     }
+    const channels: Record<string, { cwd: string }> = {}
+    for (const [channelId, cwd] of channelCwds) {
+      channels[channelId] = { cwd }
+    }
+    const state: PersistedState = { threads, channels }
     writeFileSync(stateFile, JSON.stringify(state, null, 2))
   }
 
@@ -63,10 +65,10 @@ export function createBotState(stateFile: string) {
     return activeThreads.has(threadId)
   }
 
-  function activateThread(threadId: string, parentChannelId?: string): void {
+  function activateThread(threadId: string, channelId?: string): void {
     activeThreads.add(threadId)
-    if (parentChannelId) {
-      threadParentChannelIds.set(threadId, parentChannelId)
+    if (channelId) {
+      threadChannelIds.set(threadId, channelId)
     }
   }
 
@@ -107,12 +109,12 @@ export function createBotState(stateFile: string) {
     channelCwds.delete(channelId)
   }
 
-  function getThreadParentChannelId(threadId: string): string | undefined {
-    return threadParentChannelIds.get(threadId)
+  function getThreadChannelId(threadId: string): string | undefined {
+    return threadChannelIds.get(threadId)
   }
 
-  function setThreadParentChannelId(threadId: string, channelId: string): void {
-    threadParentChannelIds.set(threadId, channelId)
+  function setThreadChannelId(threadId: string, channelId: string): void {
+    threadChannelIds.set(threadId, channelId)
   }
 
   function getUsage(threadId: string): AiResult | undefined {
@@ -137,8 +139,8 @@ export function createBotState(stateFile: string) {
     getChannelCwd,
     setChannelCwd,
     clearChannelCwd,
-    getThreadParentChannelId,
-    setThreadParentChannelId,
+    getThreadChannelId,
+    setThreadChannelId,
     getUsage,
     setUsage,
   }

@@ -103,9 +103,9 @@ export function registerMessageHandler(
 
     if (state.isActiveThread(channel.id)) {
       if (channel.isThread() && channel.parentId) {
-        const savedParentChannelId = state.getThreadParentChannelId(channel.id)
-        if (savedParentChannelId !== channel.parentId) {
-          state.setThreadParentChannelId(channel.id, channel.parentId)
+        const savedChannelId = state.getThreadChannelId(channel.id)
+        if (savedChannelId !== channel.parentId) {
+          state.setThreadChannelId(channel.id, channel.parentId)
           state.save()
         }
       }

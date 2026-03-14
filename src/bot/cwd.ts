@@ -38,16 +38,16 @@ export function resolveChannelDefaultCwd(
 export function resolveThreadCwd(
   state: Pick<
     BotState,
-    'getThreadCwd' | 'getThreadParentChannelId' | 'getChannelCwd'
+    'getThreadCwd' | 'getThreadChannelId' | 'getChannelCwd'
   >,
   threadId: string,
 ): string {
   const threadCwd = state.getThreadCwd(threadId)
   if (threadCwd) return threadCwd
 
-  const parentChannelId = state.getThreadParentChannelId(threadId)
-  if (parentChannelId) {
-    return resolveChannelDefaultCwd(state, parentChannelId)
+  const channelId = state.getThreadChannelId(threadId)
+  if (channelId) {
+    return resolveChannelDefaultCwd(state, channelId)
   }
 
   return process.cwd()
