@@ -72,6 +72,12 @@ export function registerMessageHandler(
 
     if (!interaction.isButton()) return
 
+    if (interaction.customId === 'cancel') {
+      scheduler.abort(interaction.channelId)
+      await interaction.update({ components: [] })
+      return
+    }
+
     const parsed = parseApprovalCustomId(interaction.customId)
     if (!parsed) return
     const { decision, requestId } = parsed
@@ -118,7 +124,7 @@ export function registerMessageHandler(
       await enqueueResponse(
         channel.id,
         prompt,
-        { send: (content: string) => message.channel.send(content) },
+        { send: (content) => message.channel.send(content) },
         message.channel,
         {
           adapter,

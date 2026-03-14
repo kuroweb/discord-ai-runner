@@ -2,7 +2,13 @@ import { randomUUID } from 'crypto'
 import { mkdir, readdir, rm } from 'fs/promises'
 import { dirname } from 'path'
 import { resolveAttachmentOutputDir } from './prompts/system-prompt'
-import type { Message } from 'discord.js'
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  type Message,
+  type MessageCreateOptions,
+} from 'discord.js'
 import type { AiAdapter } from '../adapters'
 import type { createBotState } from './state'
 import type { ApprovalMessageTarget } from './approval-manager'
@@ -35,7 +41,7 @@ async function cleanupAttachmentOutputDir(outputDir: string): Promise<void> {
 }
 
 export interface SendTarget {
-  send(content: string): Promise<Message>
+  send(content: string | MessageCreateOptions): Promise<Message>
 }
 
 interface RespondDependencies {
@@ -59,7 +65,16 @@ export async function respond(
   }
 
   const sessionId = state.getSession(sessionKey)
-  const thinking = await sendTarget.send('🔄処理中開始します')
+  const cancelRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('cancel')
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Danger),
+  )
+  const thinking = await sendTarget.send({
+    content: '🔄処理中...',
+    components: [cancelRow],
+  })
 
   let latestText = ''
   let dirty = false
@@ -85,18 +100,20 @@ export async function respond(
     lastRenderedSec = elapsedSec
 
     try {
-      await thinking.edit(
-        truncateTail(buildProgressMessage(Date.now() - startedAt, latestText)),
-      )
+      await thinking.edit({
+        content: truncateTail(buildProgressMessage(Date.now() - startedAt, latestText)),
+        components: [cancelRow],
+      })
     } catch {
       // 編集失敗は無視
     }
   }, EDIT_INTERVAL_MS)
 
   try {
-    await thinking.edit(
-      truncateTail(buildProgressMessage(Date.now() - startedAt, latestText)),
-    )
+    await thinking.edit({
+      content: truncateTail(buildProgressMessage(Date.now() - startedAt, latestText)),
+      components: [cancelRow],
+    })
 
     const result = await adapter.run(prompt, sessionId, {
       cwd: resolveThreadCwd(state, sessionKey),
@@ -118,7 +135,7 @@ export async function respond(
     clearInterval(interval)
 
     if (signal.aborted) {
-      await thinking.edit(buildInterruptedMessage(''))
+      await thinking.edit({ content: buildInterruptedMessage(''), components: [] })
       if (latestText.trim()) {
         for (const chunk of splitIntoChunks(latestText)) {
           await approvalTarget.send(chunk)
@@ -134,7 +151,7 @@ export async function respond(
     state.setUsage(sessionKey, result)
 
     if (result.attachments && result.attachments.length > 0) {
-      await thinking.edit('✅添付付きで完了しました')
+      await thinking.edit({ content: '✅添付付きで完了しました', components: [] })
 
       const content = buildCompletedMessage(result.result)
       if (content.trim()) {
@@ -153,7 +170,7 @@ export async function respond(
     }
 
     const completedContent = buildCompletedMessage(result.result)
-    await thinking.edit('✅完了')
+    await thinking.edit({ content: '✅完了', components: [] })
     if (completedContent.trim()) {
       for (const chunk of splitIntoChunks(completedContent)) {
         await approvalTarget.send(chunk)
@@ -163,7 +180,7 @@ export async function respond(
   } catch (error) {
     clearInterval(interval)
     if (error instanceof DOMException && error.name === 'AbortError') {
-      await thinking.edit(buildInterruptedMessage(''))
+      await thinking.edit({ content: buildInterruptedMessage(''), components: [] })
       if (latestText.trim()) {
         for (const chunk of splitIntoChunks(latestText)) {
           await approvalTarget.send(chunk)
@@ -172,6 +189,6 @@ export async function respond(
       return
     }
     const message = error instanceof Error ? error.message : String(error)
-    await thinking.edit(truncate(buildFailedMessage(message)))
+    await thinking.edit({ content: truncate(buildFailedMessage(message)), components: [] })
   }
 }
