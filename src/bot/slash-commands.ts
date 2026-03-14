@@ -1,9 +1,13 @@
 import {
+  ActionRowBuilder,
   REST,
   Routes,
   SlashCommandBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
   type ChatInputCommandInteraction,
   type Client,
+  type StringSelectMenuInteraction,
 } from 'discord.js'
 import { spawn, spawnSync } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -267,9 +271,40 @@ export async function handleSlashCommand(
 
     try {
       const cwd = getThreadCwd(channelId, { state })
-      const sessions = await adapter.listSessions(cwd, { limit: 10 })
+      const sessions = await adapter.listSessions(cwd, { limit: 25 })
       const content = formatSessionList(cwd, state.getSession(channelId), sessions)
-      await interaction.editReply(content)
+
+      if (sessions.length === 0) {
+        await interaction.editReply(content)
+        return
+      }
+
+      const currentSessionId = state.getSession(channelId)
+      const select = new StringSelectMenuBuilder()
+        .setCustomId('session-select')
+        .setPlaceholder('セッションを選択して切り替え')
+        .addOptions(
+          sessions.map((session) => {
+            const label = (session.summary.trim() || session.id).slice(0, 100)
+            const descParts: string[] = []
+            if (session.gitBranch) descParts.push(session.gitBranch)
+            if (typeof session.lastModified === 'number') {
+              descParts.push(new Date(session.lastModified).toLocaleString('ja-JP'))
+            }
+            const option = new StringSelectMenuOptionBuilder()
+              .setLabel(label)
+              .setValue(session.id)
+              .setDefault(session.id === currentSessionId)
+            if (descParts.length > 0) {
+              option.setDescription(descParts.join(' · ').slice(0, 100))
+            }
+            return option
+          }),
+        )
+
+      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)
+      const header = `📚 セッション一覧 (cwd: \`${cwd}\`)`
+      await interaction.editReply({ content: header, components: [row] })
     } catch (error) {
       const message =
         error instanceof Error
@@ -352,6 +387,7 @@ export async function handleSlashCommand(
   }
 
   if (interaction.commandName === 'diff-preview-markdown') {
+
     if (!isManagedThread) {
       await interaction.reply({
         content:
@@ -389,4 +425,26 @@ export async function handleSlashCommand(
       await interaction.editReply(`❌ ${message}`)
     }
   }
+}
+
+export async function handleSessionSelect(
+  interaction: StringSelectMenuInteraction,
+  dependencies: SlashCommandDependencies,
+): Promise<void> {
+  const { state, taskManager, approvalManager } = dependencies
+  const channelId = interaction.channelId
+  const sessionId = interaction.values[0]
+
+  if (!sessionId) return
+
+  taskManager.nextRevision(channelId)
+  state.clearSession(channelId)
+  state.setSession(channelId, sessionId)
+  approvalManager.clearAutoApprove(channelId)
+  state.save()
+
+  await interaction.update({
+    content: `📚 セッションを \`${sessionId}\` に切り替えました。`,
+    components: [],
+  })
 }

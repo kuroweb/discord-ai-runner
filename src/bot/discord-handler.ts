@@ -1,7 +1,7 @@
 import type { Client } from 'discord.js'
 import type { AiAdapter } from '../adapters'
 import { buildThreadName } from './messages'
-import { handleSlashCommand } from './slash-commands'
+import { handleSlashCommand, handleSessionSelect } from './slash-commands'
 import { respond } from './respond'
 import type { createBotState } from './state'
 import type { createThreadTaskManager } from './thread-task-manager'
@@ -60,6 +60,11 @@ export function registerMessageHandler(
   client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
       await handleSlashCommand(interaction, dependencies)
+      return
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'session-select') {
+      await handleSessionSelect(interaction, dependencies)
       return
     }
 
