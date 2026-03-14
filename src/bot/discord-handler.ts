@@ -4,14 +4,14 @@ import { buildThreadName } from './messages'
 import { handleSlashCommand, handleSessionSelect } from './slash-commands'
 import { respond } from './respond'
 import type { createBotState } from './state'
-import type { createThreadTaskManager } from './thread-task-manager'
+import type { createThreadScheduler } from './thread-scheduler'
 import type { createApprovalManager } from './approval-manager'
 
 interface HandlerDependencies {
   client: Client
   adapter: AiAdapter
   state: ReturnType<typeof createBotState>
-  taskManager: ReturnType<typeof createThreadTaskManager>
+  scheduler: ReturnType<typeof createThreadScheduler>
   approvalManager: ReturnType<typeof createApprovalManager>
 }
 
@@ -39,14 +39,13 @@ async function enqueueResponse(
   approvalChannel: Parameters<typeof respond>[1],
   dependencies: Omit<HandlerDependencies, 'client'>,
 ): Promise<void> {
-  const { adapter, state, taskManager, approvalManager } = dependencies
-  const revision = taskManager.nextRevision(channelId)
+  const { adapter, state, scheduler, approvalManager } = dependencies
+  const signal = scheduler.abort(channelId)
 
-  await taskManager.enqueue(channelId, async () => {
-    await respond(sendTarget, approvalChannel, prompt, channelId, revision, {
+  await scheduler.enqueue(channelId, async () => {
+    await respond(sendTarget, approvalChannel, prompt, channelId, signal, {
       adapter,
       state,
-      taskManager,
       approvalManager,
     })
   })
@@ -55,7 +54,7 @@ async function enqueueResponse(
 export function registerMessageHandler(
   dependencies: HandlerDependencies,
 ): void {
-  const { client, adapter, state, taskManager, approvalManager } = dependencies
+  const { client, adapter, state, scheduler, approvalManager } = dependencies
 
   client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
@@ -124,7 +123,7 @@ export function registerMessageHandler(
         {
           adapter,
           state,
-          taskManager,
+          scheduler,
           approvalManager,
         },
       )
@@ -147,7 +146,7 @@ export function registerMessageHandler(
     await enqueueResponse(thread.id, prompt, thread, thread, {
       adapter,
       state,
-      taskManager,
+      scheduler,
       approvalManager,
     })
   })

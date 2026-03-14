@@ -4,7 +4,7 @@ import { createAdapter } from './adapters'
 import { registerMessageHandler } from './bot/discord-handler'
 import { registerSlashCommands } from './bot/slash-commands'
 import { createBotState } from './bot/state'
-import { createThreadTaskManager } from './bot/thread-task-manager'
+import { createThreadScheduler } from './bot/thread-scheduler'
 import { createApprovalManager } from './bot/approval-manager'
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
@@ -13,7 +13,7 @@ if (!DISCORD_TOKEN) throw new Error('DISCORD_TOKEN が設定されていませ�
 const adapterName = process.env.AI_ADAPTER ?? 'claude'
 const adapter = createAdapter(adapterName)
 const state = createBotState('.state.json')
-const taskManager = createThreadTaskManager()
+const scheduler = createThreadScheduler()
 const approvalManager = createApprovalManager()
 
 const client = new Client({
@@ -28,7 +28,7 @@ registerMessageHandler({
   client,
   adapter,
   state,
-  taskManager,
+  scheduler,
   approvalManager,
 })
 

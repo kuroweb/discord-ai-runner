@@ -3,10 +3,10 @@ import type { CommandDependencies } from './types'
 
 export async function handleReset(
   interaction: ChatInputCommandInteraction,
-  { state, taskManager, approvalManager }: CommandDependencies,
+  { state, scheduler, approvalManager }: CommandDependencies,
 ): Promise<void> {
   const threadId = interaction.channelId
-  taskManager.nextRevision(threadId)
+  scheduler.abort(threadId)
   state.clearSession(threadId)
   state.clearThreadCwd(threadId)
   approvalManager.clearAutoApprove(threadId)

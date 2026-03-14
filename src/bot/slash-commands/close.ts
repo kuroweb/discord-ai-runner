@@ -4,7 +4,7 @@ import type { CommandDependencies } from './types'
 
 export async function handleClose(
   interaction: ChatInputCommandInteraction,
-  { state, taskManager, approvalManager }: CommandDependencies,
+  { state, scheduler, approvalManager }: CommandDependencies,
 ): Promise<void> {
   const threadId = interaction.channelId
 
@@ -13,7 +13,7 @@ export async function handleClose(
   const sessionId = state.getSession(threadId)
   if (sessionId) lines.push(`📚 セッション: \`${sessionId}\``)
 
-  taskManager.nextRevision(threadId)
+  scheduler.abort(threadId)
   approvalManager.clearAutoApprove(threadId)
   state.closeThread(threadId)
   state.save()

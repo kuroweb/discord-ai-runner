@@ -9,7 +9,7 @@ import type { CommandDependencies } from './types'
 
 export async function handleCwd(
   interaction: ChatInputCommandInteraction,
-  { state, taskManager }: CommandDependencies,
+  { state, scheduler }: CommandDependencies,
 ): Promise<void> {
   const channelId = interaction.channelId
   const isManagedThread = state.isActiveThread(channelId)
@@ -47,7 +47,7 @@ export async function handleCwd(
       )
       return
     }
-    taskManager.nextRevision(channelId)
+    scheduler.abort(channelId)
     state.clearSession(channelId)
     state.setThreadCwd(channelId, resolvedPath)
     state.save()

@@ -1,11 +1,11 @@
 import type { AiAdapter } from '../../adapters'
 import type { createApprovalManager } from '../approval-manager'
 import type { createBotState } from '../state'
-import type { createThreadTaskManager } from '../thread-task-manager'
+import type { createThreadScheduler } from '../thread-scheduler'
 
 export interface CommandDependencies {
   adapter: AiAdapter
   state: ReturnType<typeof createBotState>
-  taskManager: ReturnType<typeof createThreadTaskManager>
+  scheduler: ReturnType<typeof createThreadScheduler>
   approvalManager: ReturnType<typeof createApprovalManager>
 }

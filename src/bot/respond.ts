@@ -6,7 +6,6 @@ import type { Message } from 'discord.js'
 import type { AiAdapter } from '../adapters'
 import type { createBotState } from './state'
 import type { ApprovalMessageTarget } from './approval-manager'
-import type { createThreadTaskManager } from './thread-task-manager'
 import type { createApprovalManager } from './approval-manager'
 import { resolveThreadCwd } from './cwd'
 import {
@@ -42,7 +41,6 @@ export interface SendTarget {
 interface RespondDependencies {
   adapter: AiAdapter
   state: ReturnType<typeof createBotState>
-  taskManager: ReturnType<typeof createThreadTaskManager>
   approvalManager: ReturnType<typeof createApprovalManager>
 }
 
@@ -51,12 +49,12 @@ export async function respond(
   approvalTarget: ApprovalMessageTarget,
   prompt: string,
   sessionKey: string,
-  revision: number,
+  signal: AbortSignal,
   dependencies: RespondDependencies,
 ): Promise<void> {
-  const { adapter, state, taskManager, approvalManager } = dependencies
+  const { adapter, state, approvalManager } = dependencies
 
-  if (!taskManager.isCurrentRevision(sessionKey, revision)) {
+  if (signal.aborted) {
     return
   }
 
@@ -68,13 +66,14 @@ export async function respond(
   const startedAt = Date.now()
   let lastRenderedSec = -1
   const abortController = new AbortController()
+  signal.addEventListener('abort', () => abortController.abort(), { once: true })
   const turnId = randomUUID()
   const attachmentOutputDir = resolveAttachmentOutputDir(sessionKey, turnId)
 
   await mkdir(attachmentOutputDir, { recursive: true })
 
   const interval = setInterval(async () => {
-    if (!taskManager.isCurrentRevision(sessionKey, revision)) {
+    if (signal.aborted) {
       clearInterval(interval)
       return
     }
@@ -104,10 +103,6 @@ export async function respond(
       attachmentOutputDir,
       signal: abortController.signal,
       onChunk: (text) => {
-        if (!taskManager.isCurrentRevision(sessionKey, revision)) {
-          abortController.abort()
-          return
-        }
         latestText = text
         dirty = true
       },
@@ -122,7 +117,7 @@ export async function respond(
 
     clearInterval(interval)
 
-    if (!taskManager.isCurrentRevision(sessionKey, revision)) {
+    if (signal.aborted) {
       await thinking.edit(buildInterruptedMessage(''))
       if (latestText.trim()) {
         for (const chunk of splitIntoChunks(latestText)) {

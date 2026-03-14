@@ -6,7 +6,7 @@ import type { CommandDependencies } from './types'
 
 export async function handleSession(
   interaction: ChatInputCommandInteraction,
-  { state, taskManager, approvalManager }: CommandDependencies,
+  { state, scheduler, approvalManager }: CommandDependencies,
 ): Promise<void> {
   const threadId = interaction.channelId
   const sessionId = interaction.options.getString('id')?.trim()
@@ -21,7 +21,7 @@ export async function handleSession(
     return
   }
 
-  taskManager.nextRevision(threadId)
+  scheduler.abort(threadId)
   state.clearSession(threadId)
   state.setSession(threadId, sessionId)
   approvalManager.clearAutoApprove(threadId)
@@ -31,13 +31,13 @@ export async function handleSession(
 
 export async function handleSessionSelect(
   interaction: StringSelectMenuInteraction,
-  { state, taskManager, approvalManager }: CommandDependencies,
+  { state, scheduler, approvalManager }: CommandDependencies,
 ): Promise<void> {
   const threadId = interaction.channelId
   const sessionId = interaction.values[0]
   if (!sessionId) return
 
-  taskManager.nextRevision(threadId)
+  scheduler.abort(threadId)
   state.clearSession(threadId)
   state.setSession(threadId, sessionId)
   approvalManager.clearAutoApprove(threadId)
