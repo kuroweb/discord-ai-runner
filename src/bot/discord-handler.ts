@@ -63,7 +63,10 @@ export function registerMessageHandler(
       return
     }
 
-    if (interaction.isStringSelectMenu() && interaction.customId === 'session-select') {
+    if (
+      interaction.isStringSelectMenu() &&
+      interaction.customId === 'session-select'
+    ) {
       await handleSessionSelect(interaction, dependencies)
       return
     }

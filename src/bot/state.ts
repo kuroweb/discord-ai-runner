@@ -28,12 +28,9 @@ export function createBotState(stateFile: string) {
         activeThreads.add(threadId)
         if (thread.sessionId) sessions.set(threadId, thread.sessionId)
         if (thread.cwd) threadCwds.set(threadId, thread.cwd)
-        if (thread.channelId)
-          threadChannelIds.set(threadId, thread.channelId)
+        if (thread.channelId) threadChannelIds.set(threadId, thread.channelId)
       }
-      for (const [channelId, channel] of Object.entries(
-        state.channels ?? {},
-      )) {
+      for (const [channelId, channel] of Object.entries(state.channels ?? {})) {
         channelCwds.set(channelId, channel.cwd)
       }
       console.log(

@@ -80,8 +80,9 @@ export async function handleSessions(
         }),
       )
 
-    const row =
-      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      select,
+    )
     await interaction.editReply({
       content: `📚 セッション一覧 (cwd: \`${cwd}\`)`,
       components: [row],

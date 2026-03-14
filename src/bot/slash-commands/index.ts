@@ -8,9 +8,15 @@ import {
 } from 'discord.js'
 import { handleClose } from './close'
 import { handleCwd } from './cwd'
-import { handleDiffPreviewHtml, handleDiffPreviewMarkdown } from './diff-preview'
+import {
+  handleDiffPreviewHtml,
+  handleDiffPreviewMarkdown,
+} from './diff-preview'
 import { handleReset } from './reset'
-import { handleSession, handleSessionSelect as _handleSessionSelect } from './session'
+import {
+  handleSession,
+  handleSessionSelect as _handleSessionSelect,
+} from './session'
 import { handleSessions } from './sessions'
 import { handleStatus } from './status'
 import type { CommandDependencies } from './types'
@@ -111,7 +117,8 @@ export async function handleSlashCommand(
     !COMMANDS_ALLOWED_OUTSIDE_MANAGED_THREAD.has(interaction.commandName)
   ) {
     await interaction.reply({
-      content: 'このコマンドは bot が管理しているスレッド内で実行してください。',
+      content:
+        'このコマンドは bot が管理しているスレッド内で実行してください。',
       flags: ['Ephemeral'],
     })
     return

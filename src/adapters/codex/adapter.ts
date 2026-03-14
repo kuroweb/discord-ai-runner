@@ -84,7 +84,7 @@ function summarizeCodexPreview(preview: string): string {
   if (!trimmed) return ''
 
   const body = trimmed.includes('\n---\n')
-    ? trimmed.split('\n---\n').pop() ?? trimmed
+    ? (trimmed.split('\n---\n').pop() ?? trimmed)
     : trimmed
 
   const firstLine =
@@ -558,12 +558,14 @@ export function createCodexAdapter(): AiAdapter {
       })) as CodexThreadListResponse
 
       return (result.data ?? [])
-        .filter((thread): thread is NonNullable<typeof thread> & { id: string } =>
-          typeof thread?.id === 'string' && thread.id.length > 0,
+        .filter(
+          (thread): thread is NonNullable<typeof thread> & { id: string } =>
+            typeof thread?.id === 'string' && thread.id.length > 0,
         )
         .map((thread) => ({
           id: thread.id,
-          summary: summarizeCodexPreview(thread.preview ?? '') || '（タイトルなし）',
+          summary:
+            summarizeCodexPreview(thread.preview ?? '') || '（タイトルなし）',
           lastModified:
             typeof thread.updatedAt === 'number'
               ? thread.updatedAt * 1000

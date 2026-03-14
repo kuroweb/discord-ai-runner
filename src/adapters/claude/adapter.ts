@@ -114,10 +114,7 @@ export function createClaudeAdapter(): AiAdapter {
         }
   }
 
-  async function listClaudeSessions(
-    cwd: string,
-    options?: { limit?: number },
-  ) {
+  async function listClaudeSessions(cwd: string, options?: { limit?: number }) {
     const sessions = await listSessions({
       dir: cwd,
       limit: options?.limit ?? 10,

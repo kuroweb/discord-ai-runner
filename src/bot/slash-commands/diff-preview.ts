@@ -41,7 +41,9 @@ async function runGitDiffHtmlCommand(
         resolvePromise()
         return
       }
-      rejectPromise(new Error(stderr.trim() || 'プレビューの生成に失敗しました。'))
+      rejectPromise(
+        new Error(stderr.trim() || 'プレビューの生成に失敗しました。'),
+      )
     })
   })
 
@@ -94,7 +96,9 @@ export async function handleDiffPreviewHtml(
     })
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : 'プレビューの生成に失敗しました。'
+      error instanceof Error
+        ? error.message
+        : 'プレビューの生成に失敗しました。'
     await interaction.editReply(`❌ ${message}`)
   } finally {
     if (tempDir) {
@@ -128,7 +132,9 @@ export async function handleDiffPreviewMarkdown(
     }
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : 'プレビューの生成に失敗しました。'
+      error instanceof Error
+        ? error.message
+        : 'プレビューの生成に失敗しました。'
     await interaction.editReply(`❌ ${message}`)
   }
 }
