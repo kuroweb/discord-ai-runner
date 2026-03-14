@@ -33,6 +33,7 @@ export function createClaudeAdapter(): AiAdapter {
       prompt,
       options: {
         cwd: cwd ?? process.cwd(),
+        settingSources: ['project', 'local', 'user'],
         permissionMode: 'default',
         ...(policyAppend
           ? {
