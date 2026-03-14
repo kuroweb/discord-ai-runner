@@ -12,6 +12,7 @@ import {
   handleDiffPreviewHtml,
   handleDiffPreviewMarkdown,
 } from './diff-preview'
+import { handleTitle } from './sync-thread-name'
 import { handleReset } from './reset'
 import {
   handleSession,
@@ -60,6 +61,9 @@ const slashCommands = [
         )
         .setRequired(false),
     ),
+  new SlashCommandBuilder()
+    .setName('sync-thread-name')
+    .setDescription('現在の session summary を現在のスレッド名に反映します'),
   new SlashCommandBuilder()
     .setName('diff-preview-html')
     .setDescription('現在の作業ディレクトリの git diff を HTML 添付で返します')
@@ -137,6 +141,8 @@ export async function handleSlashCommand(
       return handleClose(interaction, dependencies)
     case 'cwd':
       return handleCwd(interaction, dependencies)
+    case 'sync-thread-name':
+      return handleTitle(interaction, dependencies)
     case 'diff-preview-html':
       return handleDiffPreviewHtml(interaction, dependencies)
     case 'diff-preview-markdown':

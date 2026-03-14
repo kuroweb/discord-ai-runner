@@ -139,7 +139,7 @@ export function registerMessageHandler(
     if (!message.mentions.has(client.user!)) return
 
     const rawPrompt = message.content.replace(/<[@#][!&]?\d+>/g, '').trim()
-    const prompt = rawPrompt || 'こんにちは'
+    const prompt = rawPrompt || '新規要望'
 
     const thread = await message.startThread({
       name: buildThreadName(prompt),

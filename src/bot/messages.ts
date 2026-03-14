@@ -1,6 +1,7 @@
 import { isClaudeResult, type AiResult } from '../adapters'
 export const DISCORD_MAX_LENGTH = 2000
 const DISCORD_THREAD_NAME_MAX_LENGTH = 100
+const DEFAULT_THREAD_SUMMARY = '新規要望'
 
 export function formatStatus(result: AiResult): string {
   if (isClaudeResult(result)) {
@@ -134,14 +135,33 @@ function sliceByChars(text: string, maxChars: number): string {
   return Array.from(text).slice(0, maxChars).join('')
 }
 
-export function buildThreadName(prompt: string): string {
+function normalizeThreadSummary(text: string): string {
+  const normalized = text.normalize('NFKC').replace(/\s+/g, ' ').trim()
+  return sliceByChars(normalized, 20) || DEFAULT_THREAD_SUMMARY
+}
+
+function currentThreadTimestampLabel(): string {
   const now = new Date().toLocaleString('ja-JP', {
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   })
-  const normalizedPrompt = prompt.normalize('NFKC').replace(/\s+/g, ' ').trim()
-  const summary = sliceByChars(normalizedPrompt, 20) || '新規要望'
-  return `[${now}] ${summary}`.slice(0, DISCORD_THREAD_NAME_MAX_LENGTH)
+  return `[${now}]`
+}
+
+export function mergeThreadNameWithTimestamp(
+  currentName: string | undefined,
+  summary: string,
+): string {
+  const timestamp =
+    currentName?.match(/^\[[^\]]+\]/)?.[0] ?? currentThreadTimestampLabel()
+  return `${timestamp} ${normalizeThreadSummary(summary)}`.slice(
+    0,
+    DISCORD_THREAD_NAME_MAX_LENGTH,
+  )
+}
+
+export function buildThreadName(prompt: string): string {
+  return mergeThreadNameWithTimestamp(undefined, prompt)
 }
