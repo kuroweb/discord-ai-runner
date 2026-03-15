@@ -14,6 +14,7 @@ import type { createBotState } from './state'
 import type { ApprovalMessageTarget } from './approval-manager'
 import type { createApprovalManager } from './approval-manager'
 import { resolveThreadCwd } from './cwd'
+import { resolveThreadModel } from './model'
 import {
   buildCompletedMessage,
   buildFailedMessage,
@@ -123,7 +124,7 @@ export async function respond(
 
     const result = await adapter.run(prompt, sessionId, {
       cwd: resolveThreadCwd(state, sessionKey),
-      model: state.getThreadModel(sessionKey),
+      model: resolveThreadModel(state, sessionKey),
       attachmentOutputDir,
       signal: abortController.signal,
       onChunk: (text) => {

@@ -10,7 +10,7 @@ interface PersistedThread {
 
 interface PersistedState {
   threads: Record<string, PersistedThread>
-  channels: Record<string, { cwd: string }>
+  channels: Record<string, { cwd?: string; model?: string }>
 }
 
 export function createBotState(stateFile: string) {
@@ -19,6 +19,7 @@ export function createBotState(stateFile: string) {
   const threadCwds = new Map<string, string>()
   const threadModels = new Map<string, string>()
   const channelCwds = new Map<string, string>()
+  const channelModels = new Map<string, string>()
   const threadChannelIds = new Map<string, string>()
   const threadUsage = new Map<string, AiResult>()
 
@@ -34,7 +35,8 @@ export function createBotState(stateFile: string) {
         if (thread.model) threadModels.set(threadId, thread.model)
       }
       for (const [channelId, channel] of Object.entries(state.channels ?? {})) {
-        channelCwds.set(channelId, channel.cwd)
+        if (channel.cwd) channelCwds.set(channelId, channel.cwd)
+        if (channel.model) channelModels.set(channelId, channel.model)
       }
       console.log(
         `[state] 復元: threads=${activeThreads.size}, sessions=${sessions.size}`,
@@ -54,9 +56,12 @@ export function createBotState(stateFile: string) {
         model: threadModels.get(threadId),
       }
     }
-    const channels: Record<string, { cwd: string }> = {}
+    const channels: Record<string, { cwd?: string; model?: string }> = {}
     for (const [channelId, cwd] of channelCwds) {
-      channels[channelId] = { cwd }
+      channels[channelId] = { ...channels[channelId], cwd }
+    }
+    for (const [channelId, model] of channelModels) {
+      channels[channelId] = { ...channels[channelId], model }
     }
     const state: PersistedState = { threads, channels }
     writeFileSync(stateFile, JSON.stringify(state, null, 2))
@@ -122,6 +127,18 @@ export function createBotState(stateFile: string) {
     channelCwds.delete(channelId)
   }
 
+  function getChannelModel(channelId: string): string | undefined {
+    return channelModels.get(channelId)
+  }
+
+  function setChannelModel(channelId: string, model: string): void {
+    channelModels.set(channelId, model)
+  }
+
+  function clearChannelModel(channelId: string): void {
+    channelModels.delete(channelId)
+  }
+
   function getThreadChannelId(threadId: string): string | undefined {
     return threadChannelIds.get(threadId)
   }
@@ -164,6 +181,9 @@ export function createBotState(stateFile: string) {
     getChannelCwd,
     setChannelCwd,
     clearChannelCwd,
+    getChannelModel,
+    setChannelModel,
+    clearChannelModel,
     getThreadChannelId,
     setThreadChannelId,
     closeThread,

@@ -11,6 +11,7 @@ import {
   type ChatInputCommandInteraction,
   type StringSelectMenuInteraction,
 } from 'discord.js'
+import { resolveChannelDefaultModel, resolveThreadModel } from '../model'
 import type { CommandDependencies } from './types'
 
 const execFileAsync = promisify(execFile)
@@ -212,7 +213,10 @@ export async function handleListModelsRemote(
       return
     }
 
-    const currentModel = state.getThreadModel(interaction.channelId)
+    const channelId = interaction.channelId
+    const currentModel = state.isActiveThread(channelId)
+      ? resolveThreadModel(state, channelId)
+      : resolveChannelDefaultModel(state, channelId)
     const view = buildRemoteModelsView(models, 0, currentModel)
     await interaction.editReply(view)
   } catch (error) {
@@ -243,7 +247,10 @@ export async function handleRemoteModelPageButton(
 
     const nextPage =
       parsed.direction === 'next' ? parsed.page + 1 : parsed.page - 1
-    const currentModel = state.getThreadModel(interaction.channelId)
+    const channelId = interaction.channelId
+    const currentModel = state.isActiveThread(channelId)
+      ? resolveThreadModel(state, channelId)
+      : resolveChannelDefaultModel(state, channelId)
     const view = buildRemoteModelsView(models, nextPage, currentModel)
     await interaction.update(view)
   } catch (error) {
@@ -261,13 +268,35 @@ export async function handleModelSelect(
   interaction: StringSelectMenuInteraction,
   { state, scheduler, approvalManager }: CommandDependencies,
 ): Promise<void> {
-  const threadId = interaction.channelId
   const model = interaction.values[0]
   if (!model) return
 
-  scheduler.abort(threadId)
-  state.setThreadModel(threadId, model)
-  approvalManager.clearAutoApprove(threadId)
+  const channelId = interaction.channelId
+  const isManagedThread = state.isActiveThread(channelId)
+  const isThread = interaction.channel?.isThread() ?? false
+
+  if (!isManagedThread && isThread) {
+    await interaction.reply({
+      content:
+        'このスレッドは bot の管理対象ではありません。通常チャンネルで実行するとデフォルトモデルを設定できます。',
+      flags: ['Ephemeral'],
+    })
+    return
+  }
+
+  if (!isManagedThread) {
+    state.setChannelModel(channelId, model)
+    state.save()
+    await interaction.update({
+      content: `🤖 このチャンネルのデフォルトモデルを \`${model}\` に設定しました。新しく作成されるスレッドと、このデフォルトを継承しているスレッドで使用されます。`,
+      components: [],
+    })
+    return
+  }
+
+  scheduler.abort(channelId)
+  state.setThreadModel(channelId, model)
+  approvalManager.clearAutoApprove(channelId)
   state.save()
 
   await interaction.update({
@@ -280,8 +309,30 @@ export async function handleModel(
   interaction: ChatInputCommandInteraction,
   { state, scheduler, approvalManager }: CommandDependencies,
 ): Promise<void> {
-  const model = interaction.options.getString('id', true).trim()
+  const channelId = interaction.channelId
+  const isManagedThread = state.isActiveThread(channelId)
+  const isThread = interaction.channel?.isThread() ?? false
+  const model = interaction.options.getString('id')
+
+  if (!isManagedThread && isThread) {
+    await interaction.reply({
+      content:
+        'このスレッドは bot の管理対象ではありません。通常チャンネルで実行するとデフォルトモデルを表示または設定できます。',
+      flags: ['Ephemeral'],
+    })
+    return
+  }
+
   if (!model) {
+    const content = isManagedThread
+      ? `🤖 現在のモデル: \`${resolveThreadModel(state, channelId) ?? '未固定（アダプタのデフォルトを使用）'}\``
+      : `🤖 このチャンネルのデフォルトモデル: \`${resolveChannelDefaultModel(state, channelId) ?? '未固定（アダプタのデフォルトを使用）'}\``
+    await interaction.reply(content)
+    return
+  }
+
+  const normalizedModel = model.trim()
+  if (!normalizedModel) {
     await interaction.reply({
       content: '❌ model id は空にできません。',
       flags: ['Ephemeral'],
@@ -289,13 +340,33 @@ export async function handleModel(
     return
   }
 
-  const threadId = interaction.channelId
-  scheduler.abort(threadId)
-  state.setThreadModel(threadId, model)
-  approvalManager.clearAutoApprove(threadId)
-  state.save()
+  if (isManagedThread) {
+    if (resolveThreadModel(state, channelId) === normalizedModel) {
+      await interaction.reply(
+        `🤖 このスレッドのモデルはすでに \`${normalizedModel}\` です。`,
+      )
+      return
+    }
+    scheduler.abort(channelId)
+    state.setThreadModel(channelId, normalizedModel)
+    approvalManager.clearAutoApprove(channelId)
+    state.save()
+    await interaction.reply(
+      `🤖 このスレッドのモデルを \`${normalizedModel}\` に設定しました。次の応答から使用します。`,
+    )
+    return
+  }
 
+  if (resolveChannelDefaultModel(state, channelId) === normalizedModel) {
+    await interaction.reply(
+      `🤖 このチャンネルのデフォルトモデルはすでに \`${normalizedModel}\` です。`,
+    )
+    return
+  }
+
+  state.setChannelModel(channelId, normalizedModel)
+  state.save()
   await interaction.reply(
-    `🤖 モデルを \`${model}\` に設定しました。次の応答から使用します。`,
+    `🤖 このチャンネルのデフォルトモデルを \`${normalizedModel}\` に設定しました。新しく作成されるスレッドと、このデフォルトを継承しているスレッドで使用されます。`,
   )
 }

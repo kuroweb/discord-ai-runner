@@ -31,7 +31,12 @@ import type { CommandDependencies } from './types'
 
 export type { CommandDependencies }
 
-const COMMANDS_ALLOWED_OUTSIDE_MANAGED_THREAD = new Set(['cwd', 'sessions'])
+const COMMANDS_ALLOWED_OUTSIDE_MANAGED_THREAD = new Set([
+  'cwd',
+  'sessions',
+  'model',
+  'models',
+])
 
 const slashCommands = [
   new SlashCommandBuilder()
@@ -51,15 +56,19 @@ const slashCommands = [
     .setDescription('現在のスレッドの利用状況を表示します'),
   new SlashCommandBuilder()
     .setName('models')
-    .setDescription('リモートのモデル一覧を表示・選択します'),
+    .setDescription(
+      'リモートのモデル一覧を表示・選択します。通常チャンネルではデフォルトモデルを設定できます',
+    ),
   new SlashCommandBuilder()
     .setName('model')
-    .setDescription('モデル ID を指定して現在のスレッドに設定します')
+    .setDescription(
+      '現在のスレッドまたはチャンネルのデフォルトモデルを表示または設定します',
+    )
     .addStringOption((option) =>
       option
         .setName('id')
-        .setDescription('設定する model id')
-        .setRequired(true),
+        .setDescription('設定する model id。未指定なら現在値を表示します')
+        .setRequired(false),
     ),
   new SlashCommandBuilder()
     .setName('reset')
