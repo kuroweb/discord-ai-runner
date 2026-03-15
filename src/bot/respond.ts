@@ -123,6 +123,7 @@ export async function respond(
 
     const result = await adapter.run(prompt, sessionId, {
       cwd: resolveThreadCwd(state, sessionKey),
+      model: state.getThreadModel(sessionKey),
       attachmentOutputDir,
       signal: abortController.signal,
       onChunk: (text) => {

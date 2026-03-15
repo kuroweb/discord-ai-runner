@@ -31,6 +31,7 @@ export interface AiRunOptions {
   onChunk: (text: string) => void
   signal?: AbortSignal
   cwd?: string
+  model?: string
   attachmentOutputDir?: string
   requestApproval?: (
     request: ToolApprovalRequest,

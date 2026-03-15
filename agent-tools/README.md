@@ -57,3 +57,12 @@ agent-tools/
 - Runtime assumption: 通常利用では依存導入済み・ビルド済みを前提とする
 - Maintenance setup: `cd agent-tools/diff-preview-markdown && npm install`
 - Usage: `agent-tools/bin/diff-preview-markdown --repo /path/to/repo [-- <git diff args...>]`
+
+### `openai-models-list`
+
+OpenAI Models API (`GET /v1/models`) を呼び出して、利用可能モデル一覧を stdout に出力する shell 製 CLI。
+
+- Entry point: `agent-tools/bin/openai-models-list`
+- Runtime assumption: `curl` は必須。通常出力では `jq` が必要
+- Maintenance setup: なし
+- Usage: `OPENAI_API_KEY=... agent-tools/bin/openai-models-list [--prefix gpt-5] [--json]`

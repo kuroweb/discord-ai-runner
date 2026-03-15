@@ -1,5 +1,8 @@
 import { spawn } from 'child_process'
-import { listSessions, query } from '@anthropic-ai/claude-agent-sdk'
+import {
+  listSessions,
+  query,
+} from '@anthropic-ai/claude-agent-sdk'
 import type { AiAdapter, AiRunOptions } from '../types'
 import { collectAttachments } from '../attachments'
 import {
@@ -15,7 +18,7 @@ export function createClaudeAdapter(): AiAdapter {
     sessionId: string | undefined,
     options: AiRunOptions,
   ): Promise<ClaudeResult> {
-    const { onChunk, signal, cwd, requestApproval, attachmentOutputDir } =
+    const { onChunk, signal, cwd, model, requestApproval, attachmentOutputDir } =
       options
     const policyAppend = renderSystemPrompt({ attachmentOutputDir })
     const readOnlyTools = new Set([
@@ -33,6 +36,7 @@ export function createClaudeAdapter(): AiAdapter {
       prompt,
       options: {
         cwd: cwd ?? process.cwd(),
+        ...(model ? { model } : {}),
         settingSources: ['project', 'local', 'user'],
         permissionMode: 'default',
         ...(policyAppend
@@ -129,5 +133,8 @@ export function createClaudeAdapter(): AiAdapter {
     }))
   }
 
-  return { run, listSessions: listClaudeSessions }
+  return {
+    run,
+    listSessions: listClaudeSessions,
+  }
 }

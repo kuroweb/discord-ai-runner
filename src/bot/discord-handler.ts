@@ -1,7 +1,11 @@
 import type { Client } from 'discord.js'
 import type { AiAdapter } from '../adapters'
 import { buildThreadName } from './messages'
-import { handleSlashCommand, handleSessionSelect } from './slash-commands'
+import {
+  handleCommandButton,
+  handleSlashCommand,
+  handleSessionSelect,
+} from './slash-commands'
 import { respond } from './respond'
 import type { createBotState } from './state'
 import type { createThreadScheduler } from './thread-scheduler'
@@ -64,13 +68,18 @@ export function registerMessageHandler(
 
     if (
       interaction.isStringSelectMenu() &&
-      interaction.customId === 'session-select'
+      (interaction.customId === 'session-select' ||
+        interaction.customId === 'model-select')
     ) {
       await handleSessionSelect(interaction, dependencies)
       return
     }
 
     if (!interaction.isButton()) return
+
+    if (await handleCommandButton(interaction, dependencies)) {
+      return
+    }
 
     if (interaction.customId === 'cancel') {
       scheduler.abort(interaction.channelId)

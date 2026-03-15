@@ -42,7 +42,6 @@ interface CodexThreadListResponse {
 }
 
 const REQUEST_TIMEOUT_MS = 30_000
-
 function buildUserInput(
   prompt: string,
 ): Array<{ type: 'text'; text: string; text_elements: unknown[] }> {
@@ -108,10 +107,16 @@ export function createCodexAdapter(): AiAdapter {
       onChunk,
       signal,
       cwd = process.cwd(),
+      model,
       requestApproval,
       attachmentOutputDir,
     } = options
-    const proc = spawn('codex', ['app-server', '--listen', 'stdio://'], {
+    const procArgs = ['app-server']
+    if (model) {
+      procArgs.push('-c', `model="${model}"`)
+    }
+    procArgs.push('--listen', 'stdio://')
+    const proc = spawn('codex', procArgs, {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
@@ -418,14 +423,14 @@ export function createCodexAdapter(): AiAdapter {
       if (sessionId) {
         const resumeResult = await request('thread/resume', {
           threadId: sessionId,
-          approvalPolicy: 'untrusted',
+          approvalPolicy: 'on-request',
           cwd,
         })
         const resumed = extractThreadId(resumeResult)
         if (resumed) resolvedThreadId = resumed
       } else {
         const startResult = await request('thread/start', {
-          approvalPolicy: 'untrusted',
+          approvalPolicy: 'on-request',
           sandbox: 'workspace-write',
           experimentalRawEvents: false,
           cwd,
@@ -579,5 +584,8 @@ export function createCodexAdapter(): AiAdapter {
     }
   }
 
-  return { run, listSessions: listCodexSessions }
+  return {
+    run,
+    listSessions: listCodexSessions,
+  }
 }

@@ -5,6 +5,7 @@ interface PersistedThread {
   sessionId?: string
   cwd?: string
   channelId?: string
+  model?: string
 }
 
 interface PersistedState {
@@ -16,6 +17,7 @@ export function createBotState(stateFile: string) {
   const activeThreads = new Set<string>()
   const sessions = new Map<string, string>()
   const threadCwds = new Map<string, string>()
+  const threadModels = new Map<string, string>()
   const channelCwds = new Map<string, string>()
   const threadChannelIds = new Map<string, string>()
   const threadUsage = new Map<string, AiResult>()
@@ -29,6 +31,7 @@ export function createBotState(stateFile: string) {
         if (thread.sessionId) sessions.set(threadId, thread.sessionId)
         if (thread.cwd) threadCwds.set(threadId, thread.cwd)
         if (thread.channelId) threadChannelIds.set(threadId, thread.channelId)
+        if (thread.model) threadModels.set(threadId, thread.model)
       }
       for (const [channelId, channel] of Object.entries(state.channels ?? {})) {
         channelCwds.set(channelId, channel.cwd)
@@ -48,6 +51,7 @@ export function createBotState(stateFile: string) {
         sessionId: sessions.get(threadId),
         cwd: threadCwds.get(threadId),
         channelId: threadChannelIds.get(threadId),
+        model: threadModels.get(threadId),
       }
     }
     const channels: Record<string, { cwd: string }> = {}
@@ -86,12 +90,24 @@ export function createBotState(stateFile: string) {
     return threadCwds.get(threadId)
   }
 
+  function getThreadModel(threadId: string): string | undefined {
+    return threadModels.get(threadId)
+  }
+
   function setThreadCwd(threadId: string, cwd: string): void {
     threadCwds.set(threadId, cwd)
   }
 
   function clearThreadCwd(threadId: string): void {
     threadCwds.delete(threadId)
+  }
+
+  function setThreadModel(threadId: string, model: string): void {
+    threadModels.set(threadId, model)
+  }
+
+  function clearThreadModel(threadId: string): void {
+    threadModels.delete(threadId)
   }
 
   function getChannelCwd(channelId: string): string | undefined {
@@ -118,6 +134,7 @@ export function createBotState(stateFile: string) {
     activeThreads.delete(threadId)
     sessions.delete(threadId)
     threadCwds.delete(threadId)
+    threadModels.delete(threadId)
     threadChannelIds.delete(threadId)
     threadUsage.delete(threadId)
   }
@@ -139,8 +156,11 @@ export function createBotState(stateFile: string) {
     setSession,
     clearSession,
     getThreadCwd,
+    getThreadModel,
     setThreadCwd,
     clearThreadCwd,
+    setThreadModel,
+    clearThreadModel,
     getChannelCwd,
     setChannelCwd,
     clearChannelCwd,

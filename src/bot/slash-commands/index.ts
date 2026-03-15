@@ -2,6 +2,7 @@ import {
   REST,
   Routes,
   SlashCommandBuilder,
+  type ButtonInteraction,
   type ChatInputCommandInteraction,
   type Client,
   type StringSelectMenuInteraction,
@@ -14,6 +15,12 @@ import {
 } from './diff-preview'
 import { handleTitle } from './sync-thread-name'
 import { handleReset } from './reset'
+import {
+  handleModel,
+  handleRemoteModelPageButton,
+  handleListModelsRemote,
+  handleModelSelect,
+} from './models'
 import {
   handleSession,
   handleSessionSelect as _handleSessionSelect,
@@ -42,6 +49,18 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('status')
     .setDescription('現在のスレッドの利用状況を表示します'),
+  new SlashCommandBuilder()
+    .setName('models')
+    .setDescription('リモートのモデル一覧を表示・選択します'),
+  new SlashCommandBuilder()
+    .setName('model')
+    .setDescription('モデル ID を指定して現在のスレッドに設定します')
+    .addStringOption((option) =>
+      option
+        .setName('id')
+        .setDescription('設定する model id')
+        .setRequired(true),
+    ),
   new SlashCommandBuilder()
     .setName('reset')
     .setDescription('現在のスレッドのセッションをリセットします'),
@@ -131,6 +150,10 @@ export async function handleSlashCommand(
   switch (interaction.commandName) {
     case 'status':
       return handleStatus(interaction, dependencies)
+    case 'models':
+      return handleListModelsRemote(interaction, dependencies)
+    case 'model':
+      return handleModel(interaction, dependencies)
     case 'session':
       return handleSession(interaction, dependencies)
     case 'sessions':
@@ -154,5 +177,16 @@ export async function handleSessionSelect(
   interaction: StringSelectMenuInteraction,
   dependencies: CommandDependencies,
 ): Promise<void> {
+  if (interaction.customId === 'model-select') {
+    return handleModelSelect(interaction, dependencies)
+  }
+
   return _handleSessionSelect(interaction, dependencies)
+}
+
+export async function handleCommandButton(
+  interaction: ButtonInteraction,
+  dependencies: CommandDependencies,
+): Promise<boolean> {
+  return handleRemoteModelPageButton(interaction, dependencies)
 }
