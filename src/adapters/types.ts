@@ -4,6 +4,33 @@ export interface AiAttachment {
   size: number
 }
 
+export interface AiTextInputPart {
+  type: 'text'
+  text: string
+}
+
+export interface AiImageInputPart {
+  type: 'image'
+  filename: string
+  mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+  data: Buffer
+  size: number
+}
+
+export interface AiPdfInputPart {
+  type: 'pdf'
+  filename: string
+  mediaType: 'application/pdf'
+  data: Buffer
+  size: number
+}
+
+export type AiInputPart = AiTextInputPart | AiImageInputPart | AiPdfInputPart
+
+export interface AiInput {
+  parts: AiInputPart[]
+}
+
 export interface AiResult {
   result: string
   session_id: string
@@ -40,7 +67,7 @@ export interface AiRunOptions {
 
 export interface AiAdapter {
   run(
-    prompt: string,
+    input: AiInput,
     sessionId: string | undefined,
     options: AiRunOptions,
   ): Promise<AiResult>

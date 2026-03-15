@@ -1,6 +1,7 @@
 import type { Client } from 'discord.js'
 import type { AiAdapter } from '../adapters'
 import { buildThreadName } from './messages'
+import { buildAiInputFromMessage, summarizeAiInput } from './inbound-attachments'
 import {
   handleCommandButton,
   handleSlashCommand,
@@ -39,7 +40,7 @@ function parseApprovalCustomId(
 
 async function enqueueResponse(
   channelId: string,
-  prompt: string,
+  input: Parameters<typeof respond>[2],
   sendTarget: Parameters<typeof respond>[0],
   approvalChannel: Parameters<typeof respond>[1],
   dependencies: Omit<HandlerDependencies, 'client' | 'adapterName'>,
@@ -48,7 +49,7 @@ async function enqueueResponse(
   const signal = scheduler.abort(channelId)
 
   await scheduler.enqueue(channelId, async () => {
-    await respond(sendTarget, approvalChannel, prompt, channelId, signal, {
+    await respond(sendTarget, approvalChannel, input, channelId, signal, {
       adapter,
       state,
       approvalManager,
@@ -128,12 +129,11 @@ export function registerMessageHandler(
         }
       }
 
-      const prompt = message.content.trim()
-      if (!prompt) return
+      const input = await buildAiInputFromMessage(message)
 
       await enqueueResponse(
         channel.id,
-        prompt,
+        input,
         { send: (content) => message.channel.send(content) },
         message.channel,
         {
@@ -149,17 +149,18 @@ export function registerMessageHandler(
     if (!message.mentions.has(client.user!)) return
 
     const rawPrompt = message.content.replace(/<[@#][!&]?\d+>/g, '').trim()
-    const prompt = rawPrompt || '新規要望'
+    const input = await buildAiInputFromMessage(message, { content: rawPrompt })
+    const threadSummary = summarizeAiInput(input)
 
     const thread = await message.startThread({
-      name: buildThreadName(prompt),
+      name: buildThreadName(threadSummary),
       autoArchiveDuration: 1440,
     })
 
     state.activateThread(thread.id, message.channelId)
     state.save()
 
-    await enqueueResponse(thread.id, prompt, thread, thread, {
+    await enqueueResponse(thread.id, input, thread, thread, {
       adapter,
       state,
       scheduler,

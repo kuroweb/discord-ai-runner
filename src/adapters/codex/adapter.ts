@@ -1,6 +1,11 @@
 import { spawn } from 'child_process'
+import { mkdtemp, rm, writeFile } from 'fs/promises'
+import { tmpdir } from 'os'
+import { extname, join } from 'path'
 import type {
   AiAdapter,
+  AiInput,
+  AiInputPart,
   AiResult,
   AiRunOptions,
   AiSessionSummary,
@@ -42,10 +47,76 @@ interface CodexThreadListResponse {
 }
 
 const REQUEST_TIMEOUT_MS = 30_000
-function buildUserInput(
-  prompt: string,
-): Array<{ type: 'text'; text: string; text_elements: unknown[] }> {
-  return [{ type: 'text', text: prompt, text_elements: [] }]
+interface CodexTextInput {
+  type: 'text'
+  text: string
+  text_elements: unknown[]
+}
+
+interface CodexLocalImageInput {
+  type: 'localImage'
+  path: string
+}
+
+type CodexUserInput = CodexTextInput | CodexLocalImageInput
+
+function buildPromptText(input: AiInput): string {
+  const chunks: string[] = []
+
+  for (const part of input.parts) {
+    if (part.type === 'text') {
+      chunks.push(part.text)
+      continue
+    }
+
+    if (part.type === 'image') {
+      chunks.push(`添付画像: ${part.filename}`)
+      continue
+    }
+
+    chunks.push(`添付PDF: ${part.filename} (Codex では未対応)`)
+  }
+
+  return chunks.filter(Boolean).join('\n\n')
+}
+
+function extensionForImagePart(part: Extract<AiInputPart, { type: 'image' }>): string {
+  const existingExt = extname(part.filename)
+  if (existingExt) return existingExt
+  if (part.mediaType === 'image/jpeg') return '.jpg'
+  if (part.mediaType === 'image/png') return '.png'
+  if (part.mediaType === 'image/gif') return '.gif'
+  return '.webp'
+}
+
+async function buildUserInput(
+  promptText: string,
+  imageParts: Array<Extract<AiInputPart, { type: 'image' }>>,
+  imageInputDir: string,
+): Promise<CodexUserInput[]> {
+  const userInputs: CodexUserInput[] = [
+    {
+      type: 'text',
+      text: promptText,
+      text_elements: [],
+    },
+  ]
+  let imageIndex = 0
+
+  for (const part of imageParts) {
+    imageIndex += 1
+    const imagePath = join(
+      imageInputDir,
+      `input-${imageIndex}${extensionForImagePart(part)}`,
+    )
+    await writeFile(imagePath, part.data)
+    userInputs.push({
+      type: 'localImage',
+      path: imagePath,
+    })
+  }
+
+  return userInputs
 }
 
 function mapDecision(
@@ -99,7 +170,7 @@ function summarizeCodexPreview(preview: string): string {
 
 export function createCodexAdapter(): AiAdapter {
   async function run(
-    prompt: string,
+    input: AiInput,
     sessionId: string | undefined,
     options: AiRunOptions,
   ): Promise<AiResult> {
@@ -128,6 +199,9 @@ export function createCodexAdapter(): AiAdapter {
     let resolvedThreadId = sessionId ?? ''
     let usageInput: number | undefined
     let usageOutput: number | undefined
+    const imageInputDir = await mkdtemp(
+      join(tmpdir(), 'discord-ai-runner-codex-input-'),
+    )
 
     let runResolve: ((result: AiResult) => void) | null = null
     let runReject: ((error: Error) => void) | null = null
@@ -440,17 +514,24 @@ export function createCodexAdapter(): AiAdapter {
       }
 
       // 3) start turn
+      const prompt = buildSystemPrompt(buildPromptText(input), {
+        attachmentOutputDir,
+      })
+      const imageParts = input.parts.filter(
+        (part): part is Extract<AiInputPart, { type: 'image' }> =>
+          part.type === 'image',
+      )
+      const turnInput = await buildUserInput(prompt, imageParts, imageInputDir)
       await request('turn/start', {
         threadId: resolvedThreadId,
-        input: buildUserInput(
-          buildSystemPrompt(prompt, { attachmentOutputDir }),
-        ),
+        input: turnInput,
       })
 
       const result = await completed
       return result
     } finally {
       proc.kill()
+      await rm(imageInputDir, { recursive: true, force: true })
     }
   }
 

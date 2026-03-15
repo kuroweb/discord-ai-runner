@@ -24,6 +24,7 @@ import {
   truncate,
   truncateTail,
 } from './messages'
+import type { AiInput } from '../adapters/types'
 
 const EDIT_INTERVAL_MS = 1500
 
@@ -54,7 +55,7 @@ interface RespondDependencies {
 export async function respond(
   sendTarget: SendTarget,
   approvalTarget: ApprovalMessageTarget,
-  prompt: string,
+  input: AiInput,
   sessionKey: string,
   signal: AbortSignal,
   dependencies: RespondDependencies,
@@ -122,7 +123,7 @@ export async function respond(
       components: [cancelRow],
     })
 
-    const result = await adapter.run(prompt, sessionId, {
+    const result = await adapter.run(input, sessionId, {
       cwd: resolveThreadCwd(state, sessionKey),
       model: resolveThreadModel(state, sessionKey),
       attachmentOutputDir,

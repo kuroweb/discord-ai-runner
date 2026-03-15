@@ -3,7 +3,7 @@ import {
   listSessions,
   query,
 } from '@anthropic-ai/claude-agent-sdk'
-import type { AiAdapter, AiRunOptions } from '../types'
+import type { AiAdapter, AiInput, AiRunOptions } from '../types'
 import { collectAttachments } from '../attachments'
 import {
   ATTACHMENT_ROOT_DIR,
@@ -12,9 +12,47 @@ import {
 import type { ClaudeResult } from './types'
 import { appendAssistantText, buildResultFromEvent } from './events'
 
+interface ClaudeMessageParam {
+  role: 'user'
+  content: Array<Record<string, unknown>>
+}
+
+function buildClaudeMessage(input: AiInput): ClaudeMessageParam {
+  const content = input.parts.map((part) => {
+    if (part.type === 'text') {
+      return { type: 'text' as const, text: part.text }
+    }
+
+    if (part.type === 'image') {
+      return {
+        type: 'image' as const,
+        source: {
+          type: 'base64' as const,
+          media_type: part.mediaType,
+          data: part.data.toString('base64'),
+        },
+      }
+    }
+
+    return {
+      type: 'document' as const,
+      source: {
+        type: 'base64' as const,
+        media_type: part.mediaType,
+        data: part.data.toString('base64'),
+      },
+    }
+  })
+
+  return {
+    role: 'user',
+    content: content.length > 0 ? content : [{ type: 'text', text: '新規要望' }],
+  }
+}
+
 export function createClaudeAdapter(): AiAdapter {
   async function run(
-    prompt: string,
+    input: AiInput,
     sessionId: string | undefined,
     options: AiRunOptions,
   ): Promise<ClaudeResult> {
@@ -33,7 +71,14 @@ export function createClaudeAdapter(): AiAdapter {
     let finalResult: ClaudeResult | null = null
 
     const queryInstance = query({
-      prompt,
+      prompt: (async function* () {
+        yield {
+          type: 'user' as const,
+          message: buildClaudeMessage(input),
+          parent_tool_use_id: null,
+          session_id: sessionId ?? '',
+        }
+      })(),
       options: {
         cwd: cwd ?? process.cwd(),
         ...(model ? { model } : {}),
