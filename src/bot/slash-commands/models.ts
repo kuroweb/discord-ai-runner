@@ -1,7 +1,6 @@
 import { execFile } from 'node:child_process'
 import { resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { query } from '@anthropic-ai/claude-agent-sdk'
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -21,24 +20,65 @@ const OPENAI_MODELS_LIST_CLI = resolve(
 )
 const MODELS_PAGE_SIZE = 25
 
-async function fetchClaudeRemoteModelIds(): Promise<string[]> {
-  const queryInstance = query({
-    prompt: 'List available models.',
-    options: {
-      permissionMode: 'bypassPermissions',
-    },
-  }) as any
+const ANTHROPIC_MODELS_URL = 'https://api.anthropic.com/v1/models'
+const ANTHROPIC_VERSION = '2023-06-01'
 
-  try {
-    const models = (await queryInstance.supportedModels()) as Array<{
-      value?: unknown
-    }>
-    return models
-      .map((model) => (typeof model.value === 'string' ? model.value.trim() : ''))
-      .filter(Boolean)
-  } finally {
-    queryInstance.close()
+interface AnthropicModelInfo {
+  id: string
+  created_at?: string
+  display_name?: string
+  type?: string
+}
+
+interface AnthropicModelsResponse {
+  data?: AnthropicModelInfo[]
+  last_id?: string
+  has_more?: boolean
+}
+
+async function fetchClaudeRemoteModelIds(): Promise<string[]> {
+  const apiKey = process.env.ANTHROPIC_MODELS_API_KEY?.trim()
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_MODELS_API_KEY が設定されていません。')
   }
+
+  const modelIds: string[] = []
+  let afterId: string | undefined
+
+  do {
+    const url = new URL(ANTHROPIC_MODELS_URL)
+    url.searchParams.set('limit', '1000')
+    if (afterId) {
+      url.searchParams.set('after_id', afterId)
+    }
+
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'anthropic-version': ANTHROPIC_VERSION,
+        'x-api-key': apiKey,
+      },
+    })
+
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(
+        `Anthropic Models API エラー (${res.status}): ${text || res.statusText}`,
+      )
+    }
+
+    const body = (await res.json()) as AnthropicModelsResponse
+    const data = body.data ?? []
+    for (const m of data) {
+      if (m.id?.trim()) {
+        modelIds.push(m.id.trim())
+      }
+    }
+
+    afterId = body.has_more ? body.last_id : undefined
+  } while (afterId)
+
+  return modelIds
 }
 
 async function fetchRemoteModelIds(): Promise<string[]> {
