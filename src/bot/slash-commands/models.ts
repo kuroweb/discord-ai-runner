@@ -19,6 +19,7 @@ const OPENAI_MODELS_LIST_CLI = resolve(
   'agent-tools/bin/openai-models-list',
 )
 const MODELS_PAGE_SIZE = 25
+const CODEX_SELECTOR_MODEL_PREFIXES = ['gpt-5.']
 
 const ANTHROPIC_MODELS_URL = 'https://api.anthropic.com/v1/models'
 const ANTHROPIC_VERSION = '2023-06-01'
@@ -87,11 +88,38 @@ async function fetchRemoteModelIds(): Promise<string[]> {
     return fetchClaudeRemoteModelIds()
   }
 
-  const { stdout, stderr } = await execFileAsync(OPENAI_MODELS_LIST_CLI, ['--json'], {
-    cwd: process.cwd(),
-    env: process.env,
-    maxBuffer: 1024 * 1024 * 8,
-  })
+  if (adapterName === 'codex') {
+    const prefixArgs = CODEX_SELECTOR_MODEL_PREFIXES.flatMap((prefix) => [
+      '--prefix',
+      prefix,
+    ])
+    const { stdout, stderr } = await execFileAsync(
+      OPENAI_MODELS_LIST_CLI,
+      prefixArgs,
+      {
+        cwd: process.cwd(),
+        env: process.env,
+        maxBuffer: 1024 * 1024 * 8,
+      },
+    )
+    if (stderr.trim()) {
+      throw new Error(stderr.trim())
+    }
+    return stdout
+      .split('\n')
+      .map((modelId) => modelId.trim())
+      .filter(Boolean)
+  }
+
+  const { stdout, stderr } = await execFileAsync(
+    OPENAI_MODELS_LIST_CLI,
+    ['--json'],
+    {
+      cwd: process.cwd(),
+      env: process.env,
+      maxBuffer: 1024 * 1024 * 8,
+    },
+  )
   if (stderr.trim()) {
     throw new Error(stderr.trim())
   }
@@ -150,7 +178,10 @@ function buildRemoteModelsView(
     content,
     components: [
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select),
-      new ActionRowBuilder<ButtonBuilder>().addComponents(prevButton, nextButton),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        prevButton,
+        nextButton,
+      ),
     ],
   }
 }
@@ -186,7 +217,9 @@ export async function handleListModelsRemote(
     await interaction.editReply(view)
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : 'モデル一覧の取得に失敗しました。'
+      error instanceof Error
+        ? error.message
+        : 'モデル一覧の取得に失敗しました。'
     await interaction.editReply(`❌ ${message}`)
   }
 }
@@ -201,7 +234,10 @@ export async function handleRemoteModelPageButton(
   try {
     const models = await fetchRemoteModelIds()
     if (models.length === 0) {
-      await interaction.update({ content: '🤖 利用可能なモデルはありません。', components: [] })
+      await interaction.update({
+        content: '🤖 利用可能なモデルはありません。',
+        components: [],
+      })
       return true
     }
 
@@ -212,7 +248,9 @@ export async function handleRemoteModelPageButton(
     await interaction.update(view)
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : 'モデル一覧の取得に失敗しました。'
+      error instanceof Error
+        ? error.message
+        : 'モデル一覧の取得に失敗しました。'
     await interaction.update({ content: `❌ ${message}`, components: [] })
   }
 
