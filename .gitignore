@@ -4,6 +4,7 @@ node_modules/
 logs/
 *.log
 dist/
+tmp/
 
 # .claude
 .claude/settings.local.json
