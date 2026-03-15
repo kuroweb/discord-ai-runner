@@ -3,7 +3,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
-import { resolveThreadCwd } from '../../cwd'
+import { resolveThreadCwd } from '../../state'
 import {
   DISCORD_MAX_LENGTH,
   splitMarkdownCodeBlocksForDiscord,

@@ -1,5 +1,5 @@
 import type { ChatInputCommandInteraction } from 'discord.js'
-import { resolveThreadCwd } from '../../cwd'
+import { resolveThreadCwd } from '../../state'
 import type { CommandDependencies } from '../types'
 
 export async function handleClose(

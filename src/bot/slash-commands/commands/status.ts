@@ -1,6 +1,6 @@
 import type { ChatInputCommandInteraction } from 'discord.js'
 import { isClaudeResult, type AiResult } from '../../../adapters'
-import { resolveThreadModel } from '../../model'
+import { resolveThreadModel } from '../../state'
 import type { CommandDependencies } from '../types'
 
 interface StatusMetadata {

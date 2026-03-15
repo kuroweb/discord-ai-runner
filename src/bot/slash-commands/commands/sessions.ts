@@ -5,7 +5,7 @@ import {
   type ChatInputCommandInteraction,
 } from 'discord.js'
 import type { AiAdapter } from '../../../adapters'
-import { resolveThreadCwd } from '../../cwd'
+import { resolveThreadCwd } from '../../state'
 import type { CommandDependencies } from '../types'
 
 function formatSessionList(

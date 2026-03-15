@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'fs'
-import type { AiResult } from '../adapters'
+import type { AiResult } from '../../adapters'
 
 interface PersistedThread {
   sessionId?: string

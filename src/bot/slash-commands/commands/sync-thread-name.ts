@@ -1,5 +1,5 @@
 import type { ChatInputCommandInteraction } from 'discord.js'
-import { resolveThreadCwd } from '../../cwd'
+import { resolveThreadCwd } from '../../state'
 import { mergeThreadNameWithTimestamp } from '../../messages'
 import type { CommandDependencies } from '../types'
 

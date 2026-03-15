@@ -10,11 +10,13 @@ import {
   type MessageCreateOptions,
 } from 'discord.js'
 import type { AiAdapter } from '../adapters'
-import type { createBotState } from './state'
+import {
+  resolveThreadCwd,
+  resolveThreadModel,
+  type createBotState,
+} from './state'
 import type { ApprovalMessageTarget } from './approval'
 import type { createApprovalManager } from './approval'
-import { resolveThreadCwd } from './cwd'
-import { resolveThreadModel } from './model'
 import {
   buildCompletedMessage,
   buildFailedMessage,

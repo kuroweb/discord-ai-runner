@@ -4,7 +4,7 @@ import {
   resolveChannelDefaultCwd,
   resolveThreadCwd,
   validateDirectoryPath,
-} from '../../cwd'
+} from '../../state'
 import type { CommandDependencies } from '../types'
 
 export async function handleCwd(

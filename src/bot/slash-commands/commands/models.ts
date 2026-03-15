@@ -11,7 +11,10 @@ import {
   type ChatInputCommandInteraction,
   type StringSelectMenuInteraction,
 } from 'discord.js'
-import { resolveChannelDefaultModel, resolveThreadModel } from '../../model'
+import {
+  resolveChannelDefaultModel,
+  resolveThreadModel,
+} from '../../state'
 import type { CommandDependencies } from '../types'
 
 const execFileAsync = promisify(execFile)

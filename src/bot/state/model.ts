@@ -1,4 +1,4 @@
-import type { createBotState } from './state'
+import type { createBotState } from '.'
 
 type BotState = ReturnType<typeof createBotState>
 

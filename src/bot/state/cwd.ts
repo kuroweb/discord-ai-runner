@@ -1,7 +1,7 @@
 import { existsSync, statSync } from 'fs'
 import { homedir } from 'os'
 import { resolve } from 'path'
-import type { createBotState } from './state'
+import type { createBotState } from '.'
 
 type BotState = ReturnType<typeof createBotState>
 
