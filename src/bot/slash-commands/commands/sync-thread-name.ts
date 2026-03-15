@@ -1,7 +1,7 @@
 import type { ChatInputCommandInteraction } from 'discord.js'
-import { resolveThreadCwd } from '../cwd'
-import { mergeThreadNameWithTimestamp } from '../messages'
-import type { CommandDependencies } from './types'
+import { resolveThreadCwd } from '../../cwd'
+import { mergeThreadNameWithTimestamp } from '../../messages'
+import type { CommandDependencies } from '../types'
 
 function canRenameChannel(
   channel: ChatInputCommandInteraction['channel'],

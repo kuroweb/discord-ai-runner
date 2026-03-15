@@ -2,7 +2,7 @@ import type {
   ChatInputCommandInteraction,
   StringSelectMenuInteraction,
 } from 'discord.js'
-import type { CommandDependencies } from './types'
+import type { CommandDependencies } from '../types'
 
 export async function handleSession(
   interaction: ChatInputCommandInteraction,

@@ -4,9 +4,9 @@ import {
   StringSelectMenuOptionBuilder,
   type ChatInputCommandInteraction,
 } from 'discord.js'
-import type { AiAdapter } from '../../adapters'
-import { resolveThreadCwd } from '../cwd'
-import type { CommandDependencies } from './types'
+import type { AiAdapter } from '../../../adapters'
+import { resolveThreadCwd } from '../../cwd'
+import type { CommandDependencies } from '../types'
 
 function formatSessionList(
   cwd: string,

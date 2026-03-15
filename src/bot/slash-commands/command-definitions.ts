@@ -3,18 +3,19 @@ import {
   type ChatInputCommandInteraction,
   type SlashCommandOptionsOnlyBuilder,
 } from 'discord.js'
-import { handleClose } from './close'
-import { handleCwd } from './cwd'
 import {
+  handleClose,
+  handleCwd,
   handleDiffPreviewHtml,
   handleDiffPreviewMarkdown,
-} from './diff-preview'
-import { handleModel, handleListModelsRemote } from './models'
-import { handleReset } from './reset'
-import { handleSession } from './session'
-import { handleSessions } from './sessions'
-import { handleStatus } from './status'
-import { handleTitle } from './sync-thread-name'
+  handleListModelsRemote,
+  handleModel,
+  handleReset,
+  handleSession,
+  handleSessions,
+  handleStatus,
+  handleTitle,
+} from './commands'
 import type { CommandDependencies } from './types'
 
 export type CommandScope = 'managed-thread' | 'channel'

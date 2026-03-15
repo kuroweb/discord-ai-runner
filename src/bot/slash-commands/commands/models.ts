@@ -11,8 +11,8 @@ import {
   type ChatInputCommandInteraction,
   type StringSelectMenuInteraction,
 } from 'discord.js'
-import { resolveChannelDefaultModel, resolveThreadModel } from '../model'
-import type { CommandDependencies } from './types'
+import { resolveChannelDefaultModel, resolveThreadModel } from '../../model'
+import type { CommandDependencies } from '../types'
 
 const execFileAsync = promisify(execFile)
 const OPENAI_MODELS_LIST_CLI = resolve(

@@ -4,8 +4,8 @@ import {
   resolveChannelDefaultCwd,
   resolveThreadCwd,
   validateDirectoryPath,
-} from '../cwd'
-import type { CommandDependencies } from './types'
+} from '../../cwd'
+import type { CommandDependencies } from '../types'
 
 export async function handleCwd(
   interaction: ChatInputCommandInteraction,

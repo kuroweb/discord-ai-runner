@@ -1,5 +1,5 @@
 import type { ChatInputCommandInteraction } from 'discord.js'
-import type { CommandDependencies } from './types'
+import type { CommandDependencies } from '../types'
 
 export async function handleReset(
   interaction: ChatInputCommandInteraction,
