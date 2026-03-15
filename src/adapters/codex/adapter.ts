@@ -77,7 +77,9 @@ function buildPromptText(input: AiInput): string {
   return chunks.filter(Boolean).join('\n\n')
 }
 
-function extensionForImagePart(part: Extract<AiInputPart, { type: 'image' }>): string {
+function extensionForImagePart(
+  part: Extract<AiInputPart, { type: 'image' }>,
+): string {
   const existingExt = extname(part.filename)
   if (existingExt) return existingExt
   if (part.mediaType === 'image/jpeg') return '.jpg'

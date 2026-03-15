@@ -73,7 +73,9 @@ export async function handleTitle(
     await interaction.channel.setName(nextName)
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : 'スレッド名の変更に失敗しました。'
+      error instanceof Error
+        ? error.message
+        : 'スレッド名の変更に失敗しました。'
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply(`❌ ${message}`)
     } else {

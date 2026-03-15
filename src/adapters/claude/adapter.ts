@@ -1,8 +1,5 @@
 import { spawn } from 'child_process'
-import {
-  listSessions,
-  query,
-} from '@anthropic-ai/claude-agent-sdk'
+import { listSessions, query } from '@anthropic-ai/claude-agent-sdk'
 import type { AiAdapter, AiInput, AiRunOptions } from '../types'
 import { collectAttachments } from '../attachments'
 import {
@@ -46,7 +43,8 @@ function buildClaudeMessage(input: AiInput): ClaudeMessageParam {
 
   return {
     role: 'user',
-    content: content.length > 0 ? content : [{ type: 'text', text: '新規要望' }],
+    content:
+      content.length > 0 ? content : [{ type: 'text', text: '新規要望' }],
   }
 }
 
@@ -56,8 +54,14 @@ export function createClaudeAdapter(): AiAdapter {
     sessionId: string | undefined,
     options: AiRunOptions,
   ): Promise<ClaudeResult> {
-    const { onChunk, signal, cwd, model, requestApproval, attachmentOutputDir } =
-      options
+    const {
+      onChunk,
+      signal,
+      cwd,
+      model,
+      requestApproval,
+      attachmentOutputDir,
+    } = options
     const policyAppend = renderSystemPrompt({ attachmentOutputDir })
     const readOnlyTools = new Set([
       'Read',

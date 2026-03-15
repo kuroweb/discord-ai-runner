@@ -91,7 +91,9 @@ async function fetchAttachmentData(attachment: Attachment): Promise<Buffer> {
   return Buffer.from(bytes)
 }
 
-async function resolveAttachmentPart(attachment: Attachment): Promise<AiInputPart[]> {
+async function resolveAttachmentPart(
+  attachment: Attachment,
+): Promise<AiInputPart[]> {
   if (attachment.size > MAX_ATTACHMENT_BYTES) {
     return [
       formatAttachmentNotice(
@@ -192,7 +194,8 @@ export async function buildAiInputFromMessage(
 
 export function summarizeAiInput(input: AiInput): string {
   const textPart = input.parts.find(
-    (part): part is Extract<AiInputPart, { type: 'text' }> => part.type === 'text',
+    (part): part is Extract<AiInputPart, { type: 'text' }> =>
+      part.type === 'text',
   )
   if (textPart?.text.trim()) return textPart.text.trim()
 
