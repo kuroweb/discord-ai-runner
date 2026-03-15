@@ -1,5 +1,5 @@
 import type { AiAdapter } from '../../adapters'
-import type { createApprovalManager } from '../approval-manager'
+import type { createApprovalManager } from '../approval'
 import type { createBotState } from '../state'
 import type { createThreadScheduler } from '../thread-scheduler'
 

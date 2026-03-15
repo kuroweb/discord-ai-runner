@@ -6,8 +6,8 @@ import {
   EmbedBuilder,
   type MessageCreateOptions,
 } from 'discord.js'
-import type { ToolApprovalDecision } from '../adapters/types'
-import { isHighRiskOperation } from './approval-policy'
+import type { ToolApprovalDecision } from '../../adapters/types'
+import { isHighRiskOperation } from './policy'
 
 interface PendingApproval {
   channelId: string

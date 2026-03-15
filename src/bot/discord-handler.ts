@@ -14,7 +14,7 @@ import {
 import { respond } from './respond'
 import type { createBotState } from './state'
 import type { createThreadScheduler } from './thread-scheduler'
-import type { createApprovalManager } from './approval-manager'
+import type { createApprovalManager } from './approval'
 
 interface HandlerDependencies {
   client: Client
