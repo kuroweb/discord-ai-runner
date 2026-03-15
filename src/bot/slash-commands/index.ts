@@ -32,6 +32,7 @@ import type { CommandDependencies } from './types'
 export type { CommandDependencies }
 
 const COMMANDS_ALLOWED_OUTSIDE_MANAGED_THREAD = new Set([
+  'status',
   'cwd',
   'sessions',
   'model',

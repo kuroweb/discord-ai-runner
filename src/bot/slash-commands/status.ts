@@ -20,15 +20,12 @@ function formatStatusSummary(metadata: StatusMetadata = {}): string {
   const adapterLabel = metadata.adapterName ?? 'unknown'
   const modelLabel = metadata.model ?? '未固定'
   const cwdLabel = metadata.cwd ?? process.cwd()
-  const sessionLabel = metadata.sessionId ?? '未開始'
 
   return [
     '```',
     formatStatusLine('Adapter', adapterLabel),
     formatStatusLine('Model', modelLabel),
     formatStatusLine('Cwd', cwdLabel),
-    formatStatusLine('Session', sessionLabel),
-    formatStatusLine('Usage', 'まだ利用データがありません'),
     '```',
   ].join('\n')
 }
@@ -81,14 +78,21 @@ export async function handleStatus(
   interaction: ChatInputCommandInteraction,
   { state, adapterName }: Pick<CommandDependencies, 'state' | 'adapterName'>,
 ): Promise<void> {
-  const threadId = interaction.channelId
-  const usage = state.getUsage(threadId)
-  const metadata = {
-    adapterName,
-    cwd: state.getThreadCwd(threadId),
-    model: resolveThreadModel(state, threadId),
-    sessionId: state.getSession(threadId),
-  }
+  const targetId = interaction.channelId
+  const isManagedThread = state.isActiveThread(targetId)
+  const usage = isManagedThread ? state.getUsage(targetId) : undefined
+  const metadata = isManagedThread
+    ? {
+        adapterName,
+        cwd: state.getThreadCwd(targetId),
+        model: resolveThreadModel(state, targetId),
+        sessionId: state.getSession(targetId),
+      }
+    : {
+        adapterName,
+        cwd: state.getChannelCwd(targetId),
+        model: state.getChannelModel(targetId),
+      }
   const content = usage
     ? formatStatus(usage, metadata)
     : formatStatusSummary(metadata)
