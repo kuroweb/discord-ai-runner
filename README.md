@@ -48,11 +48,10 @@ cp .env.example .env
 ```bash
 DISCORD_TOKEN=your_bot_token_here
 AI_ADAPTER=claude
-DISCORD_GUILD_ID=your_guild_id_here
 ```
 
 `AI_ADAPTER` は `claude`（デフォルト）か `codex`。
-`DISCORD_GUILD_ID` を設定すると slash command を guild 単位で即時反映する。未設定時は global 登録になり、Discord 側の反映に時間がかかることがある。
+slash command は global 登録される。Discord 側の反映には時間がかかることがある。
 
 ### 4. 起動確認
 

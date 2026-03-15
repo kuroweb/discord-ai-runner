@@ -115,17 +115,10 @@ export async function registerSlashCommands(
   }
 
   const rest = new REST({ version: '10' }).setToken(token)
-  const guildId = process.env.DISCORD_GUILD_ID
-  const route = guildId
-    ? Routes.applicationGuildCommands(applicationId, guildId)
-    : Routes.applicationCommands(applicationId)
+  const route = Routes.applicationCommands(applicationId)
 
   await rest.put(route, { body: slashCommands })
-  console.log(
-    guildId
-      ? `✅ guild slash commands を登録しました (${guildId})`
-      : '✅ global slash commands を登録しました',
-  )
+  console.log('✅ global slash commands を登録しました')
 }
 
 export async function handleSlashCommand(
