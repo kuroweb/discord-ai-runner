@@ -141,9 +141,10 @@ function buildRemoteModelsView(
     .setStyle(ButtonStyle.Secondary)
     .setDisabled(safePage >= totalPages - 1)
 
-  const content = currentModel
-    ? `🤖 現在のモデル: \`${currentModel}\`\nリモートモデル (${models.length}件) Page ${safePage + 1}/${totalPages}`
-    : `🤖 リモートモデル (${models.length}件) Page ${safePage + 1}/${totalPages}`
+  const currentModelLabel = currentModel
+    ? `\`${currentModel}\``
+    : '未固定（アダプタのデフォルトを使用）'
+  const content = `🤖 現在のモデル: ${currentModelLabel}\nリモートモデル (${models.length}件) Page ${safePage + 1}/${totalPages}`
 
   return {
     content,
