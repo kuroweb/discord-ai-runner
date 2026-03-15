@@ -1,4 +1,3 @@
-import { extname } from 'node:path'
 import type { Attachment, Message } from 'discord.js'
 import type { AiInput, AiInputPart } from '../adapters/types'
 
@@ -20,44 +19,6 @@ const TEXT_MIME_TYPES = new Set([
   'text/html',
 ])
 
-const TEXT_EXTENSIONS = new Set([
-  '.txt',
-  '.md',
-  '.markdown',
-  '.json',
-  '.jsonl',
-  '.yml',
-  '.yaml',
-  '.xml',
-  '.csv',
-  '.log',
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs',
-  '.py',
-  '.rb',
-  '.go',
-  '.rs',
-  '.java',
-  '.kt',
-  '.scala',
-  '.swift',
-  '.php',
-  '.sh',
-  '.zsh',
-  '.bash',
-  '.sql',
-  '.html',
-  '.css',
-  '.scss',
-  '.toml',
-  '.ini',
-  '.env',
-])
-
 type SupportedMediaType =
   | 'application/pdf'
   | 'image/gif'
@@ -65,10 +26,7 @@ type SupportedMediaType =
   | 'image/png'
   | 'image/webp'
 
-type SupportedImageMediaType = Exclude<
-  SupportedMediaType,
-  'application/pdf'
->
+type AttachmentKind = 'image' | 'pdf' | 'text' | 'unsupported'
 
 function detectSupportedMediaType(
   attachment: Attachment,
@@ -83,21 +41,41 @@ function detectSupportedMediaType(
   ) {
     return contentType
   }
-
-  const ext = extname(attachment.name).toLowerCase()
-  if (ext === '.pdf') return 'application/pdf'
-  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg'
-  if (ext === '.png') return 'image/png'
-  if (ext === '.gif') return 'image/gif'
-  if (ext === '.webp') return 'image/webp'
   return null
 }
 
-function isTextAttachment(attachment: Attachment): boolean {
+function shouldInlineAttachmentAsText(attachment: Attachment): boolean {
   const contentType = attachment.contentType?.toLowerCase()
   if (contentType?.startsWith('text/')) return true
-  if (contentType && TEXT_MIME_TYPES.has(contentType)) return true
-  return TEXT_EXTENSIONS.has(extname(attachment.name).toLowerCase())
+  return Boolean(contentType && TEXT_MIME_TYPES.has(contentType))
+}
+
+function classifyAttachment(attachment: Attachment): AttachmentKind {
+  const supportedMediaType = detectSupportedMediaType(attachment)
+  if (
+    supportedMediaType === 'image/gif' ||
+    supportedMediaType === 'image/jpeg' ||
+    supportedMediaType === 'image/png' ||
+    supportedMediaType === 'image/webp'
+  ) {
+    return 'image'
+  }
+
+  if (supportedMediaType === 'application/pdf') {
+    return 'pdf'
+  }
+
+  if (shouldInlineAttachmentAsText(attachment)) {
+    return 'text'
+  }
+
+  return 'unsupported'
+}
+
+export function hasPdfAttachment(message: Message): boolean {
+  return message.attachments.some(
+    (attachment) => classifyAttachment(attachment) === 'pdf',
+  )
 }
 
 function formatAttachmentNotice(message: string): AiInputPart {
@@ -122,10 +100,9 @@ async function resolveAttachmentPart(attachment: Attachment): Promise<AiInputPar
     ]
   }
 
-  const supportedMediaType = detectSupportedMediaType(attachment)
-  const shouldReadAsText = isTextAttachment(attachment)
+  const attachmentKind = classifyAttachment(attachment)
 
-  if (!supportedMediaType && !shouldReadAsText) {
+  if (attachmentKind === 'unsupported') {
     return [
       formatAttachmentNotice(
         `添付 ${attachment.name} (${attachment.contentType ?? 'unknown'}) がありました。必要なら内容確認手順を指示してください。`,
@@ -145,7 +122,7 @@ async function resolveAttachmentPart(attachment: Attachment): Promise<AiInputPar
     ]
   }
 
-  if (shouldReadAsText && !supportedMediaType) {
+  if (attachmentKind === 'text') {
     return [
       {
         type: 'text',
@@ -154,7 +131,7 @@ async function resolveAttachmentPart(attachment: Attachment): Promise<AiInputPar
     ]
   }
 
-  if (supportedMediaType === 'application/pdf') {
+  if (attachmentKind === 'pdf') {
     return [
       {
         type: 'pdf',
@@ -166,15 +143,19 @@ async function resolveAttachmentPart(attachment: Attachment): Promise<AiInputPar
     ]
   }
 
-  if (!supportedMediaType) {
+  const imageMediaType = detectSupportedMediaType(attachment)
+  if (
+    imageMediaType !== 'image/gif' &&
+    imageMediaType !== 'image/jpeg' &&
+    imageMediaType !== 'image/png' &&
+    imageMediaType !== 'image/webp'
+  ) {
     return [
       formatAttachmentNotice(
         `添付 ${attachment.name} の種別を判定できませんでした。`,
       ),
     ]
   }
-
-  const imageMediaType: SupportedImageMediaType = supportedMediaType
 
   return [
     {

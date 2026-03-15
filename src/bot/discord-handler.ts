@@ -1,7 +1,11 @@
 import type { Client } from 'discord.js'
 import type { AiAdapter } from '../adapters'
 import { buildThreadName } from './messages'
-import { buildAiInputFromMessage, summarizeAiInput } from './inbound-attachments'
+import {
+  buildAiInputFromMessage,
+  hasPdfAttachment,
+  summarizeAiInput,
+} from './inbound-attachments'
 import {
   handleCommandButton,
   handleSlashCommand,
@@ -60,7 +64,8 @@ async function enqueueResponse(
 export function registerMessageHandler(
   dependencies: HandlerDependencies,
 ): void {
-  const { client, adapter, state, scheduler, approvalManager } = dependencies
+  const { client, adapterName, adapter, state, scheduler, approvalManager } =
+    dependencies
 
   client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
@@ -117,6 +122,14 @@ export function registerMessageHandler(
 
   client.on('messageCreate', async (message) => {
     if (message.author.bot) return
+
+    const rejectsPdf = adapterName.trim().toLowerCase() === 'codex'
+    if (rejectsPdf && hasPdfAttachment(message)) {
+      await message.reply(
+        'Codex は現在 PDF 添付入力に対応していません。PDF なしで送るか、画像へ変換して送ってください。',
+      )
+      return
+    }
 
     const channel = message.channel
 

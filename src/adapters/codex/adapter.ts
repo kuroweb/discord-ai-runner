@@ -71,10 +71,7 @@ function buildPromptText(input: AiInput): string {
 
     if (part.type === 'image') {
       chunks.push(`添付画像: ${part.filename}`)
-      continue
     }
-
-    chunks.push(`添付PDF: ${part.filename} (Codex では未対応)`)
   }
 
   return chunks.filter(Boolean).join('\n\n')
