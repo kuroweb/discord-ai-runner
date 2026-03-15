@@ -56,7 +56,10 @@ function formatStatus(result: AiResult, metadata: StatusMetadata = {}): string {
         'Context',
         `${result.input_tokens.toLocaleString()} / ${result.context_window.toLocaleString()} tokens (${usedPct}% used)`,
       ),
-      formatStatusLine('Output', `${result.output_tokens.toLocaleString()} tokens`),
+      formatStatusLine(
+        'Output',
+        `${result.output_tokens.toLocaleString()} tokens`,
+      ),
       formatStatusLine('Latency', `${latency}s`),
       '```',
     ].join('\n')
@@ -68,8 +71,14 @@ function formatStatus(result: AiResult, metadata: StatusMetadata = {}): string {
     formatStatusLine('Model', modelLabel),
     formatStatusLine('Cwd', cwdLabel),
     formatStatusLine('Session', sessionLabel),
-    formatStatusLine('Input', `${result.input_tokens?.toLocaleString() ?? '?'} tokens`),
-    formatStatusLine('Output', `${result.output_tokens?.toLocaleString() ?? '?'} tokens`),
+    formatStatusLine(
+      'Input',
+      `${result.input_tokens?.toLocaleString() ?? '?'} tokens`,
+    ),
+    formatStatusLine(
+      'Output',
+      `${result.output_tokens?.toLocaleString() ?? '?'} tokens`,
+    ),
     '```',
   ].join('\n')
 }

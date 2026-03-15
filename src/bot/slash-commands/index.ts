@@ -1,119 +1,21 @@
 import {
   REST,
   Routes,
-  SlashCommandBuilder,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
   type Client,
   type StringSelectMenuInteraction,
 } from 'discord.js'
-import { handleClose } from './close'
-import { handleCwd } from './cwd'
+import { handleRemoteModelPageButton, handleModelSelect } from './models'
+import { handleSessionSelect as _handleSessionSelect } from './session'
 import {
-  handleDiffPreviewHtml,
-  handleDiffPreviewMarkdown,
-} from './diff-preview'
-import { handleTitle } from './sync-thread-name'
-import { handleReset } from './reset'
-import {
-  handleModel,
-  handleRemoteModelPageButton,
-  handleListModelsRemote,
-  handleModelSelect,
-} from './models'
-import {
-  handleSession,
-  handleSessionSelect as _handleSessionSelect,
-} from './session'
-import { handleSessions } from './sessions'
-import { handleStatus } from './status'
+  commandDefinitionByName,
+  slashCommands,
+  type CommandScope,
+} from './command-definitions'
 import type { CommandDependencies } from './types'
 
 export type { CommandDependencies }
-
-const COMMANDS_ALLOWED_OUTSIDE_MANAGED_THREAD = new Set([
-  'status',
-  'cwd',
-  'sessions',
-  'model',
-  'models',
-])
-
-const slashCommands = [
-  new SlashCommandBuilder()
-    .setName('sessions')
-    .setDescription('現在の作業ディレクトリのセッション一覧を表示します'),
-  new SlashCommandBuilder()
-    .setName('session')
-    .setDescription('現在のセッションを表示または切り替えます')
-    .addStringOption((option) =>
-      option
-        .setName('id')
-        .setDescription('切り替えたい session id。未指定なら現在値を表示します')
-        .setRequired(false),
-    ),
-  new SlashCommandBuilder()
-    .setName('status')
-    .setDescription('現在のスレッドの利用状況を表示します'),
-  new SlashCommandBuilder()
-    .setName('models')
-    .setDescription(
-      'リモートのモデル一覧を表示・選択します。通常チャンネルではデフォルトモデルを設定できます',
-    ),
-  new SlashCommandBuilder()
-    .setName('model')
-    .setDescription(
-      '現在のスレッドまたはチャンネルのデフォルトモデルを表示または設定します',
-    )
-    .addStringOption((option) =>
-      option
-        .setName('id')
-        .setDescription('設定する model id。未指定なら現在値を表示します')
-        .setRequired(false),
-    ),
-  new SlashCommandBuilder()
-    .setName('reset')
-    .setDescription('現在のスレッドのセッションをリセットします'),
-  new SlashCommandBuilder()
-    .setName('close')
-    .setDescription('現在のスレッドを閉じます'),
-  new SlashCommandBuilder()
-    .setName('cwd')
-    .setDescription(
-      '現在のスレッドまたはチャンネルの作業ディレクトリを表示または設定します',
-    )
-    .addStringOption((option) =>
-      option
-        .setName('path')
-        .setDescription(
-          '設定したいディレクトリパス。未指定なら現在値を表示します',
-        )
-        .setRequired(false),
-    ),
-  new SlashCommandBuilder()
-    .setName('sync-thread-name')
-    .setDescription('現在の session summary を現在のスレッド名に反映します'),
-  new SlashCommandBuilder()
-    .setName('diff-preview-html')
-    .setDescription('現在の作業ディレクトリの git diff を HTML 添付で返します')
-    .addStringOption((option) =>
-      option
-        .setName('file')
-        .setDescription('特定のファイルだけ見たいときの相対パス')
-        .setRequired(false),
-    ),
-  new SlashCommandBuilder()
-    .setName('diff-preview-markdown')
-    .setDescription(
-      '現在の作業ディレクトリの git diff を Markdown コードブロックで返します',
-    )
-    .addStringOption((option) =>
-      option
-        .setName('file')
-        .setDescription('特定のファイルだけ見たいときの相対パス')
-        .setRequired(false),
-    ),
-].map((command) => command.toJSON())
 
 export async function registerSlashCommands(
   client: Client,
@@ -137,11 +39,16 @@ export async function handleSlashCommand(
 ): Promise<void> {
   const { state } = dependencies
   const isManagedThread = state.isActiveThread(interaction.channelId)
+  const command = commandDefinitionByName.get(interaction.commandName)
+  const currentScope: CommandScope = isManagedThread
+    ? 'managed-thread'
+    : 'channel'
 
-  if (
-    !isManagedThread &&
-    !COMMANDS_ALLOWED_OUTSIDE_MANAGED_THREAD.has(interaction.commandName)
-  ) {
+  if (!command) {
+    throw new Error(`unknown slash command: ${interaction.commandName}`)
+  }
+
+  if (!command.scope.includes(currentScope)) {
     await interaction.reply({
       content:
         'このコマンドは bot が管理しているスレッド内で実行してください。',
@@ -150,30 +57,7 @@ export async function handleSlashCommand(
     return
   }
 
-  switch (interaction.commandName) {
-    case 'status':
-      return handleStatus(interaction, dependencies)
-    case 'models':
-      return handleListModelsRemote(interaction, dependencies)
-    case 'model':
-      return handleModel(interaction, dependencies)
-    case 'session':
-      return handleSession(interaction, dependencies)
-    case 'sessions':
-      return handleSessions(interaction, dependencies)
-    case 'reset':
-      return handleReset(interaction, dependencies)
-    case 'close':
-      return handleClose(interaction, dependencies)
-    case 'cwd':
-      return handleCwd(interaction, dependencies)
-    case 'sync-thread-name':
-      return handleTitle(interaction, dependencies)
-    case 'diff-preview-html':
-      return handleDiffPreviewHtml(interaction, dependencies)
-    case 'diff-preview-markdown':
-      return handleDiffPreviewMarkdown(interaction, dependencies)
-  }
+  return command.handle(interaction, dependencies)
 }
 
 export async function handleSessionSelect(
