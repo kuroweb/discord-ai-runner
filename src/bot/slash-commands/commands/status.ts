@@ -1,6 +1,6 @@
 import type { ChatInputCommandInteraction } from 'discord.js'
 import { isClaudeResult, type AiResult } from '../../../adapters'
-import { resolveThreadModel } from '../../state'
+import { resolveThreadCwd, resolveThreadModel } from '../../state'
 import type { CommandDependencies } from '../types'
 
 interface StatusMetadata {
@@ -93,7 +93,7 @@ export async function handleStatus(
   const metadata = isManagedThread
     ? {
         adapterName,
-        cwd: state.getThreadCwd(targetId),
+        cwd: resolveThreadCwd(state, targetId),
         model: resolveThreadModel(state, targetId),
         sessionId: state.getSession(targetId),
       }
