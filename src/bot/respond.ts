@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { mkdir, readdir, rm } from 'fs/promises'
 import { dirname } from 'path'
-import { resolveAttachmentOutputDir } from './prompts/system-prompt'
+import { resolveAttachmentOutputDir } from './system-prompts/system-prompt'
 import {
   ActionRowBuilder,
   ButtonBuilder,

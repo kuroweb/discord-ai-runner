@@ -12,7 +12,7 @@ import type {
   ToolApprovalDecision,
 } from '../types'
 import { collectAttachments } from '../attachments'
-import { buildSystemPrompt } from '../../bot/prompts/system-prompt'
+import { buildSystemPrompt } from '../../bot/system-prompts/system-prompt'
 
 type RequestId = string | number
 

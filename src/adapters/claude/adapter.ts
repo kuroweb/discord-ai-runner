@@ -5,7 +5,7 @@ import { collectAttachments } from '../attachments'
 import {
   ATTACHMENT_ROOT_DIR,
   renderSystemPrompt,
-} from '../../bot/prompts/system-prompt'
+} from '../../bot/system-prompts/system-prompt'
 import type { ClaudeResult } from './types'
 import { appendAssistantText, buildResultFromEvent } from './events'
 
