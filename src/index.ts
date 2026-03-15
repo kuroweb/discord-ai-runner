@@ -26,6 +26,7 @@ const client = new Client({
 
 registerMessageHandler({
   client,
+  adapterName,
   adapter,
   state,
   scheduler,

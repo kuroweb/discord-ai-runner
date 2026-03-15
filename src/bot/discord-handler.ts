@@ -13,6 +13,7 @@ import type { createApprovalManager } from './approval-manager'
 
 interface HandlerDependencies {
   client: Client
+  adapterName: string
   adapter: AiAdapter
   state: ReturnType<typeof createBotState>
   scheduler: ReturnType<typeof createThreadScheduler>
@@ -41,7 +42,7 @@ async function enqueueResponse(
   prompt: string,
   sendTarget: Parameters<typeof respond>[0],
   approvalChannel: Parameters<typeof respond>[1],
-  dependencies: Omit<HandlerDependencies, 'client'>,
+  dependencies: Omit<HandlerDependencies, 'client' | 'adapterName'>,
 ): Promise<void> {
   const { adapter, state, scheduler, approvalManager } = dependencies
   const signal = scheduler.abort(channelId)

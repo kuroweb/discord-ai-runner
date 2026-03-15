@@ -1,32 +1,6 @@
-import { isClaudeResult, type AiResult } from '../adapters'
 export const DISCORD_MAX_LENGTH = 2000
 const DISCORD_THREAD_NAME_MAX_LENGTH = 100
 const DEFAULT_THREAD_SUMMARY = '新規要望'
-
-export function formatStatus(result: AiResult): string {
-  if (isClaudeResult(result)) {
-    const usedPct =
-      result.context_window > 0
-        ? ((result.input_tokens / result.context_window) * 100).toFixed(1)
-        : '0.0'
-    const latency = (result.duration_api_ms / 1000).toFixed(1)
-    return [
-      '```',
-      `Current Session  (${result.model})`,
-      `  Context : ${result.input_tokens.toLocaleString()} / ${result.context_window.toLocaleString()} tokens (${usedPct}% used)`,
-      `  Output  : ${result.output_tokens.toLocaleString()} tokens`,
-      `  Latency : ${latency}s`,
-      '```',
-    ].join('\n')
-  }
-
-  return [
-    '```',
-    `  Input  : ${result.input_tokens?.toLocaleString() ?? '?'} tokens`,
-    `  Output : ${result.output_tokens?.toLocaleString() ?? '?'} tokens`,
-    '```',
-  ].join('\n')
-}
 
 export function truncate(text: string): string {
   return text.length > DISCORD_MAX_LENGTH
