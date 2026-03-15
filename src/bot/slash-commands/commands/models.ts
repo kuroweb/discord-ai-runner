@@ -1,6 +1,3 @@
-import { execFile } from 'node:child_process'
-import { resolve } from 'node:path'
-import { promisify } from 'node:util'
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -17,16 +14,12 @@ import {
 } from '../../state'
 import type { CommandDependencies } from '../types'
 
-const execFileAsync = promisify(execFile)
-const OPENAI_MODELS_LIST_CLI = resolve(
-  process.cwd(),
-  'agent-tools/bin/openai-models-list',
-)
 const MODELS_PAGE_SIZE = 25
 const CODEX_SELECTOR_MODEL_PREFIXES = ['gpt-5.']
 
 const ANTHROPIC_MODELS_URL = 'https://api.anthropic.com/v1/models'
 const ANTHROPIC_VERSION = '2023-06-01'
+const OPENAI_MODELS_URL = 'https://api.openai.com/v1/models'
 
 interface AnthropicModelInfo {
   id: string
@@ -86,6 +79,42 @@ async function fetchClaudeRemoteModelIds(): Promise<string[]> {
   return modelIds
 }
 
+async function fetchOpenAIRemoteModelIds(
+  prefixes?: string[],
+): Promise<string[]> {
+  const apiKey = process.env.OPENAI_MODELS_API_KEY?.trim()
+  if (!apiKey) {
+    throw new Error('OPENAI_MODELS_API_KEY が設定されていません。')
+  }
+
+  const res = await fetch(OPENAI_MODELS_URL, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(
+      `OpenAI Models API エラー (${res.status}): ${text || res.statusText}`,
+    )
+  }
+
+  const body = (await res.json()) as { data?: Array<{ id?: unknown }> }
+  const allIds = (body.data ?? [])
+    .map((model) => (typeof model.id === 'string' ? model.id.trim() : ''))
+    .filter(Boolean)
+
+  if (!prefixes || prefixes.length === 0) {
+    return allIds.sort()
+  }
+
+  return allIds
+    .filter((id) => prefixes.some((prefix) => id.startsWith(prefix)))
+    .sort()
+}
+
 async function fetchRemoteModelIds(): Promise<string[]> {
   const adapterName = (process.env.AI_ADAPTER ?? 'claude').trim().toLowerCase()
   if (adapterName === 'claude') {
@@ -93,44 +122,10 @@ async function fetchRemoteModelIds(): Promise<string[]> {
   }
 
   if (adapterName === 'codex') {
-    const prefixArgs = CODEX_SELECTOR_MODEL_PREFIXES.flatMap((prefix) => [
-      '--prefix',
-      prefix,
-    ])
-    const { stdout, stderr } = await execFileAsync(
-      OPENAI_MODELS_LIST_CLI,
-      prefixArgs,
-      {
-        cwd: process.cwd(),
-        env: process.env,
-        maxBuffer: 1024 * 1024 * 8,
-      },
-    )
-    if (stderr.trim()) {
-      throw new Error(stderr.trim())
-    }
-    return stdout
-      .split('\n')
-      .map((modelId) => modelId.trim())
-      .filter(Boolean)
+    return fetchOpenAIRemoteModelIds(CODEX_SELECTOR_MODEL_PREFIXES)
   }
 
-  const { stdout, stderr } = await execFileAsync(
-    OPENAI_MODELS_LIST_CLI,
-    ['--json'],
-    {
-      cwd: process.cwd(),
-      env: process.env,
-      maxBuffer: 1024 * 1024 * 8,
-    },
-  )
-  if (stderr.trim()) {
-    throw new Error(stderr.trim())
-  }
-  const payload = JSON.parse(stdout) as { data?: Array<{ id?: unknown }> }
-  return (payload.data ?? [])
-    .map((model) => (typeof model.id === 'string' ? model.id.trim() : ''))
-    .filter(Boolean)
+  return fetchOpenAIRemoteModelIds()
 }
 
 function buildRemoteModelsView(
