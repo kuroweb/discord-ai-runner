@@ -25,8 +25,10 @@ const client = new Client({
   ],
 })
 
-const batchRunner = createBatchRunner({ client, adapter })
-schedule.forEach(({ cron, job }) => batchRunner.register(cron, job))
+const batchRunner = createBatchRunner({ client, adapter, state })
+schedule.forEach(({ cron, job, channelId }) =>
+  batchRunner.register(cron, job, channelId),
+)
 
 registerMessageHandler({
   client,
@@ -37,7 +39,9 @@ registerMessageHandler({
   approvalManager,
 })
 
-client.once('clientReady', () => batchRunner.start())
+if (process.env.BATCH_ENABLED === 'true') {
+  client.once('clientReady', () => batchRunner.start())
+}
 
 client.once('clientReady', (readyClient) => {
   console.log(`✅ ${readyClient.user.tag} として起動しました`)
