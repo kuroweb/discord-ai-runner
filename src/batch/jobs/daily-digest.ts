@@ -17,7 +17,10 @@ function buildDigestPrompt(): AiInput {
       {
         type: 'text',
         text: [
-          'Use .claude/skills/daily-digest.md as the primary instruction.',
+          'Use these skill files as primary instructions:',
+          '- Claude: .claude/skills/daily-digest.md',
+          '- Codex: .codex/skills/daily-digest.md',
+          'Choose the one that matches the current adapter runtime.',
           `Generate AI news daily digest for ${today}.`,
           'Output format:',
           '- First non-empty line: one-line summary in Japanese (for thread title, plain text).',
