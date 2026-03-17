@@ -15,11 +15,13 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.38",
     "discord.js": "^14.19.3",
-    "dotenv": "^16.0.0"
+    "dotenv": "^16.0.0",
+    "node-cron": "^4.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.0.0",
+    "@types/node-cron": "^3.0.11",
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.4.0",
