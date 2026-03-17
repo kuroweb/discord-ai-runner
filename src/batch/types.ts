@@ -1,5 +1,5 @@
 import type { Client } from 'discord.js'
-import type { AiAdapter } from '../../adapters/types'
+import type { AiAdapter } from '../adapters/types'
 
 export type JobContext = {
   client: Client
