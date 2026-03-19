@@ -18,10 +18,59 @@ export function truncateTail(text: string): string {
 /** 2000文字超のテキストを Discord 送信用にチャンク分割 */
 export function splitIntoChunks(text: string): string[] {
   if (text.length <= DISCORD_MAX_LENGTH) return [text]
+
+  const normalized = text.replace(/\r\n/g, '\n')
   const chunks: string[] = []
-  for (let i = 0; i < text.length; i += DISCORD_MAX_LENGTH) {
-    chunks.push(text.slice(i, i + DISCORD_MAX_LENGTH))
+
+  function pushSegment(segment: string, separator: string): void {
+    const trimmed = segment.trim()
+    if (!trimmed) return
+
+    const current = chunks.at(-1)
+    if (!current) {
+      chunks.push(trimmed)
+      return
+    }
+
+    const candidate = `${current}${separator}${trimmed}`
+    if (candidate.length <= DISCORD_MAX_LENGTH) {
+      chunks[chunks.length - 1] = candidate
+      return
+    }
+
+    chunks.push(trimmed)
   }
+
+  function pushLineWise(block: string): void {
+    const lines = block.split('\n')
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+
+      if (trimmed.length <= DISCORD_MAX_LENGTH) {
+        pushSegment(trimmed, '\n')
+        continue
+      }
+
+      for (let i = 0; i < trimmed.length; i += DISCORD_MAX_LENGTH) {
+        chunks.push(trimmed.slice(i, i + DISCORD_MAX_LENGTH))
+      }
+    }
+  }
+
+  for (const block of normalized.split(/\n{2,}/)) {
+    const trimmed = block.trim()
+    if (!trimmed) continue
+
+    if (trimmed.length <= DISCORD_MAX_LENGTH) {
+      pushSegment(trimmed, '\n\n')
+      continue
+    }
+
+    pushLineWise(trimmed)
+  }
+
   return chunks
 }
 
