@@ -1,58 +1,44 @@
 import { ChannelType } from 'discord.js'
 import type { AiInput } from '../../adapters/types'
-import { splitIntoChunks, buildThreadName } from '../../bot/messages'
-import {
-  resolveChannelDefaultCwd,
-  resolveChannelDefaultModel,
-} from '../../bot/state'
+import { buildThreadName } from '../../bot/messages'
+import { respond } from '../../bot/respond'
 import type { BatchJob } from '../types'
 
 const DEFAULT_SUMMARY = 'AIニュース デイリーダイジェスト'
 
 function buildDigestPrompt(): AiInput {
-  const today = new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now)
+  const timestamp = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+    .format(now)
+    .replace(' ', 'T')
 
   return {
     parts: [
       {
         type: 'text',
         text: [
-          'Use these skill files as primary instructions:',
-          '- Claude: .claude/skills/daily-digest.md',
-          '- Codex: .codex/skills/daily-digest.md',
-          'Choose the one that matches the current adapter runtime.',
-          `Generate AI news daily digest for ${today}.`,
-          'Output format:',
-          '- First non-empty line: one-line summary in Japanese (for thread title, plain text).',
-          '- After a blank line: detailed digest in Japanese Markdown.',
+          'daily-digest skill を使って、AIニュースのデイリーダイジェストを作成してください。',
+          `対象日は ${today} JST です。現在時刻は ${timestamp} JST です。`,
+          'Discord に投稿する最終本文だけを日本語で返してください。',
         ].join('\n'),
       },
     ],
   }
-}
-
-function extractSummary(text: string): string {
-  const firstLine =
-    text
-      .split('\n')
-      .map((line) => line.trim())
-      .find((line) => line.length > 0) ?? ''
-
-  const normalized = firstLine.replace(/^[-*#>\d.)\s]+/, '').trim()
-  return normalized || DEFAULT_SUMMARY
-}
-
-function extractBody(text: string): string {
-  const lines = text.split('\n')
-  const firstNonEmptyIndex = lines.findIndex((line) => line.trim().length > 0)
-  if (firstNonEmptyIndex === -1) return DEFAULT_SUMMARY
-
-  const body = lines
-    .slice(firstNonEmptyIndex + 1)
-    .join('\n')
-    .trim()
-  if (!body) return text.trim() || DEFAULT_SUMMARY
-  return body
 }
 
 export const dailyDigestJob: BatchJob = {
@@ -66,6 +52,9 @@ export const dailyDigestJob: BatchJob = {
     }
 
     const channel = await ctx.client.channels.fetch(ctx.channelId)
+    console.log(
+      `[batch] daily-digest: channel fetch attempted (${ctx.channelId})`,
+    )
     if (!channel) {
       console.warn(`[batch] daily-digest: channel not found (${ctx.channelId})`)
       return
@@ -81,30 +70,27 @@ export const dailyDigestJob: BatchJob = {
       return
     }
 
-    const result = await ctx.adapter.run(buildDigestPrompt(), undefined, {
-      cwd: resolveChannelDefaultCwd(ctx.state, ctx.channelId),
-      model: resolveChannelDefaultModel(ctx.state, ctx.channelId),
-      onChunk: () => {},
-    })
-
-    const summary = extractSummary(result.result)
-    const body = extractBody(result.result)
-
-    const kickoff = await channel.send(`🗞️ ${summary}`)
+    const kickoff = await channel.send(`🗞️ ${DEFAULT_SUMMARY}`)
+    console.log('[batch] daily-digest: kickoff message sent')
     const thread = await kickoff.startThread({
-      name: buildThreadName(summary),
+      name: buildThreadName(DEFAULT_SUMMARY),
       autoArchiveDuration: 1440,
       reason: 'AIニュース デイリーダイジェスト',
     })
-
-    for (const chunk of splitIntoChunks(body)) {
-      await thread.send(chunk)
-    }
+    console.log(`[batch] daily-digest: thread started (${thread.id})`)
 
     ctx.state.activateThread(thread.id, ctx.channelId)
-    if (result.session_id) {
-      ctx.state.setSession(thread.id, result.session_id)
-    }
     ctx.state.save()
+    ctx.approvalManager.enableAutoApprove(thread.id)
+    console.log('[batch] daily-digest: state saved')
+
+    const signal = ctx.scheduler.abort(thread.id)
+    await ctx.scheduler.enqueue(thread.id, async () => {
+      await respond(thread, thread, buildDigestPrompt(), thread.id, signal, {
+        adapter: ctx.adapter,
+        state: ctx.state,
+        approvalManager: ctx.approvalManager,
+      })
+    })
   },
 }

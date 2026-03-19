@@ -25,7 +25,13 @@ const client = new Client({
   ],
 })
 
-const batchRunner = createBatchRunner({ client, adapter, state })
+const batchRunner = createBatchRunner({
+  client,
+  adapter,
+  state,
+  scheduler,
+  approvalManager,
+})
 schedule.forEach(({ cron, job, channelId }) =>
   batchRunner.register(cron, job, channelId),
 )

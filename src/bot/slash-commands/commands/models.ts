@@ -8,10 +8,7 @@ import {
   type ChatInputCommandInteraction,
   type StringSelectMenuInteraction,
 } from 'discord.js'
-import {
-  resolveChannelDefaultModel,
-  resolveThreadModel,
-} from '../../state'
+import { resolveChannelDefaultModel, resolveThreadModel } from '../../state'
 import type { CommandDependencies } from '../types'
 
 const MODELS_PAGE_SIZE = 25

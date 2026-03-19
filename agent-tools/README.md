@@ -57,4 +57,3 @@ agent-tools/
 - Runtime assumption: 通常利用では依存導入済み・ビルド済みを前提とする
 - Maintenance setup: `cd agent-tools/diff-preview-markdown && npm install`
 - Usage: `agent-tools/bin/diff-preview-markdown --repo /path/to/repo [-- <git diff args...>]`
-
