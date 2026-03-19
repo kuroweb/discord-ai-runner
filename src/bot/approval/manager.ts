@@ -126,9 +126,14 @@ export function createApprovalManager() {
     autoApproveChannels.delete(channelId)
   }
 
+  function enableAutoApprove(channelId: string): void {
+    autoApproveChannels.add(channelId)
+  }
+
   return {
     requestApproval,
     resolveApproval,
     clearAutoApprove,
+    enableAutoApprove,
   }
 }

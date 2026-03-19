@@ -6,6 +6,7 @@ import { registerSlashCommands } from './bot/slash-commands'
 import { createBotState } from './bot/state'
 import { createThreadScheduler } from './bot/thread-scheduler'
 import { createApprovalManager } from './bot/approval'
+import { createBatchRunner, schedule } from './batch'
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
 if (!DISCORD_TOKEN) throw new Error('DISCORD_TOKEN が設定されていません')
@@ -24,6 +25,17 @@ const client = new Client({
   ],
 })
 
+const batchRunner = createBatchRunner({
+  client,
+  adapter,
+  state,
+  scheduler,
+  approvalManager,
+})
+schedule.forEach(({ cron, job, channelId }) =>
+  batchRunner.register(cron, job, channelId),
+)
+
 registerMessageHandler({
   client,
   adapterName,
@@ -32,6 +44,10 @@ registerMessageHandler({
   scheduler,
   approvalManager,
 })
+
+if (process.env.BATCH_ENABLED === 'true') {
+  client.once('clientReady', () => batchRunner.start())
+}
 
 client.once('clientReady', (readyClient) => {
   console.log(`✅ ${readyClient.user.tag} として起動しました`)
