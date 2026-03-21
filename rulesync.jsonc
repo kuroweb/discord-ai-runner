@@ -1,0 +1,14 @@
+{
+  "targets": [
+    "claudecode",
+    "codexcli"
+  ],
+  "features": [
+    "rules",
+    "skills"
+  ],
+  "baseDirs": [
+    "."
+  ],
+  "delete": false
+}

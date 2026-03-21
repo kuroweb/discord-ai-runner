@@ -2,8 +2,10 @@
 name: daily-digest
 description: >-
   直近48時間の、AI コーディングエージェント利用者向けデイリーダイジェストを作る。
-  公式アップデートと、X・Zenn・Qiita・はてなで直近に話題になっている記事を拾い、 Discord に貼りやすい日本語で短くまとめる。
+  公式アップデートと、X・Zenn・Qiita・はてなで直近に話題になっている記事を拾い、
+  Discord に貼りやすい日本語で短くまとめる。
 ---
+
 # daily-digest
 
 ## Goal
