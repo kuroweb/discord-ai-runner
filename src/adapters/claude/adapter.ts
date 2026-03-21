@@ -8,6 +8,7 @@ import {
 } from '../../bot/system-prompts'
 import type { ClaudeResult } from './types'
 import { appendAssistantText, buildResultFromEvent } from './events'
+import { resolveSpawnCmd } from '../resolve-spawn-cmd'
 
 interface ClaudeMessageParam {
   role: 'user'
@@ -84,7 +85,7 @@ export function createClaudeAdapter(): AiAdapter {
         }
       })(),
       options: {
-        cwd: cwd ?? process.cwd(),
+        cwd,
         ...(model ? { model } : {}),
         settingSources: ['project', 'local', 'user'],
         permissionMode: 'default',
@@ -99,7 +100,7 @@ export function createClaudeAdapter(): AiAdapter {
           : {}),
         spawnClaudeCodeProcess: (spawnOptions) =>
           spawn(
-            spawnOptions.command,
+            resolveSpawnCmd(cwd, 'claude-ws', spawnOptions.command),
             [...spawnOptions.args, '--add-dir', ATTACHMENT_ROOT_DIR],
             {
               cwd: spawnOptions.cwd,

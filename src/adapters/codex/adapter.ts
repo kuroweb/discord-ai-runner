@@ -12,6 +12,7 @@ import type {
   ToolApprovalDecision,
 } from '../types'
 import { collectAttachments } from '../attachments'
+import { resolveSpawnCmd } from '../resolve-spawn-cmd'
 import { buildSystemPrompt } from '../../bot/system-prompts'
 
 type RequestId = string | number
@@ -47,6 +48,7 @@ interface CodexThreadListResponse {
 }
 
 const REQUEST_TIMEOUT_MS = 30_000
+
 interface CodexTextInput {
   type: 'text'
   text: string
@@ -176,7 +178,7 @@ export function createCodexAdapter(): AiAdapter {
     const {
       onChunk,
       signal,
-      cwd = process.cwd(),
+      cwd,
       model,
       requestApproval,
       attachmentOutputDir,
@@ -186,7 +188,7 @@ export function createCodexAdapter(): AiAdapter {
       procArgs.push('-c', `model="${model}"`)
     }
     procArgs.push('--listen', 'stdio://')
-    const proc = spawn('codex', procArgs, {
+    const proc = spawn(resolveSpawnCmd(cwd, 'codex-ws', 'codex'), procArgs, {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
@@ -538,10 +540,14 @@ export function createCodexAdapter(): AiAdapter {
     cwd: string,
     options?: { limit?: number },
   ): Promise<AiSessionSummary[]> {
-    const proc = spawn('codex', ['app-server', '--listen', 'stdio://'], {
-      cwd,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
+    const proc = spawn(
+      resolveSpawnCmd(cwd, 'codex-ws', 'codex'),
+      ['app-server', '--listen', 'stdio://'],
+      {
+        cwd,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    )
 
     let nextId = 1
     const pending = new Map<RequestId, PendingRequest>()

@@ -57,7 +57,7 @@ export type ToolApprovalDecision = 'approve' | 'deny' | 'approve-all'
 export interface AiRunOptions {
   onChunk: (text: string) => void
   signal?: AbortSignal
-  cwd?: string
+  cwd: string
   model?: string
   attachmentOutputDir?: string
   requestApproval?: (
