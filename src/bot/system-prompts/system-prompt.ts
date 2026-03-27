@@ -1,6 +1,7 @@
 import { existsSync } from 'fs'
 import { dirname, join } from 'path'
 import { renderAttachmentPolicy } from './attachment-policy'
+import { renderGoogleDrivePolicy } from './google-drive-policy'
 import { renderToolingPolicy } from './tooling-policy'
 
 export const ATTACHMENT_ROOT_DIR = '/tmp/discord-ai-runner'
@@ -35,6 +36,7 @@ export function resolveAttachmentOutputDir(
 export function renderSystemPrompt(options: SystemPromptOptions): string {
   const parts = [
     renderAttachmentPolicy(options.attachmentOutputDir),
+    renderGoogleDrivePolicy(),
     renderToolingPolicy(AGENT_TOOLS_DIR),
   ].filter(Boolean)
   return parts.join('\n\n')
