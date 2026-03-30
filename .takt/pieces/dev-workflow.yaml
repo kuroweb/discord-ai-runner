@@ -1,0 +1,289 @@
+# マルチプロバイダー開発フロー: Codex（仕様・受入・監督）/ Cursor（実装）/ Claude（修正・ドキュメント）。
+# コード簡素化（simplify）ステップは自動化に含めない（必要なら手動）。
+name: dev-workflow
+description: 仕様ドラフト→仕様レビュー/改訂ループ（最大4）→Cursor実装→受入/修正ループ（最大3）→監督→ドキュメント更新
+piece_config:
+  provider_options:
+    codex:
+      network_access: true
+    opencode:
+      network_access: true
+max_movements: 20
+initial_movement: spec-draft
+
+instructions:
+  spec-draft: ../facets/instructions/spec-draft.md
+  spec-review: ../facets/instructions/spec-review.md
+  spec-revise: ../facets/instructions/spec-revise.md
+  implement-from-spec: ../facets/instructions/implement-from-spec.md
+  acceptance: ../facets/instructions/acceptance.md
+  supervise-release: ../facets/instructions/supervise-release.md
+  doc-update: ../facets/instructions/doc-update.md
+
+loop_monitors:
+  - cycle:
+      - spec-review
+      - spec-revise
+    threshold: 4
+    judge:
+      persona: supervisor
+      instruction: |
+        spec-review と spec-revise が {cycle_count} 回繰り返されました。
+
+        `spec-review.md` と `spec.md` を読み、このループが健全（収束・指摘の減少）か、
+        非生産的（同じ論点の繰り返し）かを判定してください。
+
+        **参照:** {report:spec-review.md}
+      rules:
+        - condition: 健全（進捗あり、仕様が収束している）
+          next: spec-review
+        - condition: 非生産的（改善なく同一点を往復している）
+          next: ABORT
+  - cycle:
+      - acceptance
+      - fix
+    threshold: 3
+    judge:
+      persona: supervisor
+      instruction: |
+        acceptance と fix が {cycle_count} 回繰り返されました。
+
+        `acceptance.md` と直近の修正内容を照合し、ループが健全か非生産的かを判定してください。
+
+        **参照:** {report:acceptance.md}
+      rules:
+        - condition: 健全（残件・指摘が減っている）
+          next: acceptance
+        - condition: 非生産的（同じ不具合や同じ受入否認の繰り返し）
+          next: supervise
+
+movements:
+  - name: spec-draft
+    edit: false
+    provider: codex
+    persona: planner
+    knowledge: architecture
+    instruction: spec-draft
+    output_contracts:
+      report:
+        - name: spec.md
+          format: |
+            ```markdown
+            # 仕様（ドラフト）
+
+            ## 目的
+
+            ## 受入条件
+
+            ## スコープ / 非スコープ
+
+            ## 現状と変更方針
+
+            ## 仮定・リスク
+
+            ## 受入時の確認観点（テスト・ビルド・手動）
+            ```
+    rules:
+      - condition: 仕様ドラフトが完成した
+        next: spec-review
+      - condition: 依頼が曖昧で仕様化できない
+        next: ABORT
+
+  - name: spec-review
+    edit: false
+    provider: codex
+    persona: requirements-reviewer
+    policy: review
+    knowledge: architecture
+    instruction: spec-review
+    output_contracts:
+      report:
+        - name: spec-review.md
+          format: |
+            ```markdown
+            # 仕様レビュー結果
+
+            ## 結果: APPROVE / NEEDS_REVISION
+
+            ## サマリー
+
+            ## 指摘一覧
+            | # | 重要度 | 内容 | 対応先（spec.md セクション等） |
+            |---|--------|------|------------------------------|
+            ```
+    rules:
+      - condition: 仕様が承認され実装に進める
+        next: implement
+      - condition: 仕様の修正が必要
+        next: spec-revise
+
+  - name: spec-revise
+    edit: true
+    provider: codex
+    persona: coder
+    policy: coding
+    knowledge: architecture
+    required_permission_mode: edit
+    instruction: spec-revise
+    output_contracts:
+      report:
+        - name: spec-revision-notes.md
+          format: |
+            ```markdown
+            # 仕様修正サマリー
+
+            ## 対応した指摘
+
+            ## 却下した指摘（理由）
+
+            ## spec.md の主な変更点
+            ```
+    rules:
+      - condition: 仕様修正を反映した
+        next: spec-review
+      - condition: 判断できない、情報不足
+        next: spec-draft
+
+  - name: implement
+    edit: true
+    provider: cursor
+    persona: coder
+    policy:
+      - coding
+      - testing
+    session: refresh
+    knowledge: architecture
+    required_permission_mode: edit
+    instruction: implement-from-spec
+    output_contracts:
+      report:
+        - name: coder-scope.md
+          format: coder-scope
+        - name: coder-decisions.md
+          format: coder-decisions
+    rules:
+      - condition: 実装完了
+        next: acceptance
+      - condition: 実装を進行できない
+        next: ABORT
+
+  - name: acceptance
+    edit: false
+    provider: codex
+    persona: qa-reviewer
+    policy: review
+    knowledge: architecture
+    instruction: acceptance
+    output_contracts:
+      report:
+        - name: acceptance.md
+          format: |
+            ```markdown
+            # 受入結果
+
+            ## 結果: APPROVE / NEEDS_FIX
+
+            ## 受入条件チェック
+            | # | 条件 | 判定 | 根拠 |
+            |---|------|------|------|
+
+            ## 修正依頼（NEEDS_FIX の場合）
+            ```
+    rules:
+      - condition: 受入承認
+        next: supervise
+      - condition: 修正が必要
+        next: fix
+
+  - name: fix
+    edit: true
+    provider: claude
+    persona: coder
+    policy:
+      - coding
+      - testing
+    session: refresh
+    knowledge: architecture
+    required_permission_mode: edit
+    instruction: fix
+    pass_previous_response: false
+    provider_options:
+      claude:
+        allowed_tools:
+          - Read
+          - Glob
+          - Grep
+          - Edit
+          - Write
+          - Bash
+          - WebSearch
+          - WebFetch
+    rules:
+      - condition: 修正完了
+        next: acceptance
+      - condition: 判断できない、仕様に戻る必要がある
+        next: spec-review
+
+  - name: supervise
+    edit: false
+    provider: codex
+    persona: supervisor
+    policy: review
+    instruction: supervise-release
+    output_contracts:
+      report:
+        - name: supervise-release.md
+          format: |
+            ```markdown
+            # リリース前監督
+
+            ## 判定（次のいずれか1行をそのまま記載）
+            ALL OK（リリース準備完了） / 仕様のフォローが必要 / 実装・品質のフォローが必要
+
+            ## サマリー
+
+            ## 残課題（ある場合）
+
+            ## 推奨次アクション
+            ```
+    rules:
+      - condition: ALL OK（リリース準備完了）
+        next: doc-update
+      - condition: 仕様のフォローが必要
+        next: spec-review
+      - condition: 実装・品質のフォローが必要
+        next: fix
+
+  - name: doc-update
+    edit: true
+    provider: claude
+    persona: coder
+    policy: coding
+    knowledge: architecture
+    required_permission_mode: edit
+    instruction: doc-update
+    provider_options:
+      claude:
+        allowed_tools:
+          - Read
+          - Glob
+          - Grep
+          - Edit
+          - Write
+          - Bash
+    output_contracts:
+      report:
+        - name: doc-update.md
+          format: |
+            ```markdown
+            # ドキュメント更新
+
+            ## 変更ファイル
+
+            ## 要約
+
+            ## 変更不要だった場合の理由
+            ```
+    rules:
+      - condition: ドキュメント更新完了
+        next: COMPLETE
