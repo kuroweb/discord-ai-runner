@@ -9,7 +9,6 @@ import {
   handleDiffPreviewHtml,
   handleDiffPreviewMarkdown,
   handleListModelsRemote,
-  handleModel,
   handleReset,
   handleSession,
   handleSessions,
@@ -67,21 +66,6 @@ export const commandDefinitions: CommandDefinition[] = [
         'リモートのモデル一覧を表示・選択します。通常チャンネルではデフォルトモデルを設定できます',
       ),
     handle: handleListModelsRemote,
-  },
-  {
-    scope: ['managed-thread', 'channel'],
-    builder: new SlashCommandBuilder()
-      .setName('model')
-      .setDescription(
-        '現在のスレッドまたはチャンネルのデフォルトモデルを表示または設定します',
-      )
-      .addStringOption((option) =>
-        option
-          .setName('id')
-          .setDescription('設定する model id。未指定なら現在値を表示します')
-          .setRequired(false),
-      ),
-    handle: handleModel,
   },
   {
     scope: ['managed-thread'],
