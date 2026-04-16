@@ -3,41 +3,16 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   type ChatInputCommandInteraction,
+  type StringSelectMenuInteraction,
 } from 'discord.js'
 import type { AiAdapter } from '../../../adapters'
 import { resolveThreadCwd } from '../../state'
 import type { CommandDependencies } from '../types'
 
-function formatSessionList(
-  cwd: string,
-  currentSessionId: string | undefined,
-  sessions: Awaited<ReturnType<NonNullable<AiAdapter['listSessions']>>>,
-): string {
-  const lines = [`cwd: ${cwd}`]
-
-  if (sessions.length === 0) {
-    lines.push('(no sessions)')
-    return `📚 セッション一覧\n\`\`\`text\n${lines.join('\n')}\n\`\`\``
-  }
-
-  for (const session of sessions) {
-    const marker = session.id === currentSessionId ? '*' : ' '
-    const summary = session.summary.trim() || '（タイトルなし）'
-    const branch = session.gitBranch ? ` · ${session.gitBranch}` : ''
-    const updated =
-      typeof session.lastModified === 'number'
-        ? ` · ${new Date(session.lastModified).toLocaleString('ja-JP')}`
-        : ''
-    lines.push(`${marker} ${session.id} ${summary}${branch}${updated}`)
-  }
-
-  return `📚 セッション一覧\n\`\`\`text\n${lines.join('\n')}\n\`\`\``
-}
-
-export async function handleSessions(
+export const handleSessions = async (
   interaction: ChatInputCommandInteraction,
   { adapter, state }: CommandDependencies,
-): Promise<void> {
+): Promise<void> => {
   if (!adapter.listSessions) {
     await interaction.reply('❌ この AI adapter は `/sessions` に未対応です。')
     return
@@ -94,4 +69,50 @@ export async function handleSessions(
         : 'セッション一覧の取得に失敗しました。'
     await interaction.editReply(`❌ ${message}`)
   }
+}
+
+export const handleSessionSelect = async (
+  interaction: StringSelectMenuInteraction,
+  { state, scheduler, approvalManager }: CommandDependencies,
+): Promise<void> => {
+  const threadId = interaction.channelId
+  const sessionId = interaction.values[0]
+  if (!sessionId) return
+
+  scheduler.abort(threadId)
+  state.clearSession(threadId)
+  state.setSession(threadId, sessionId)
+  approvalManager.clearAutoApprove(threadId)
+  state.save()
+
+  await interaction.update({
+    content: `📚 セッションを \`${sessionId}\` に切り替えました。`,
+    components: [],
+  })
+}
+
+const formatSessionList = (
+  cwd: string,
+  currentSessionId: string | undefined,
+  sessions: Awaited<ReturnType<NonNullable<AiAdapter['listSessions']>>>,
+): string => {
+  const lines = [`cwd: ${cwd}`]
+
+  if (sessions.length === 0) {
+    lines.push('(no sessions)')
+    return `📚 セッション一覧\n\`\`\`text\n${lines.join('\n')}\n\`\`\``
+  }
+
+  for (const session of sessions) {
+    const marker = session.id === currentSessionId ? '*' : ' '
+    const summary = session.summary.trim() || '（タイトルなし）'
+    const branch = session.gitBranch ? ` · ${session.gitBranch}` : ''
+    const updated =
+      typeof session.lastModified === 'number'
+        ? ` · ${new Date(session.lastModified).toLocaleString('ja-JP')}`
+        : ''
+    lines.push(`${marker} ${session.id} ${summary}${branch}${updated}`)
+  }
+
+  return `📚 セッション一覧\n\`\`\`text\n${lines.join('\n')}\n\`\`\``
 }

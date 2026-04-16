@@ -1,2 +1,2 @@
-export * from './register'
+export * from './register-slash-commands'
 export * from './types'
