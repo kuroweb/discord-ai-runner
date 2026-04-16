@@ -9,7 +9,7 @@ import {
   type MessageCreateOptions,
 } from 'discord.js'
 import type { AiAdapter } from '../adapters'
-import type { AiInput } from '../adapters/types'
+import type { AiInput, AiResult } from '../adapters/types'
 import type { ApprovalMessageTarget, createApprovalManager } from './approval'
 import {
   buildCompletedMessage,
@@ -54,12 +54,7 @@ export const respond = async (
   }
 
   const sessionId = state.getSession(sessionKey)
-  const cancelRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId('cancel')
-      .setLabel('Cancel')
-      .setStyle(ButtonStyle.Danger),
-  )
+  const cancelRow = buildCancelRow()
   const thinking = await sendTarget.send({
     content: '🔄処理中...',
     components: [cancelRow],
@@ -131,15 +126,7 @@ export const respond = async (
     clearInterval(interval)
 
     if (signal.aborted) {
-      await thinking.edit({
-        content: buildInterruptedMessage(''),
-        components: [],
-      })
-      if (latestText.trim()) {
-        for (const chunk of splitIntoChunks(latestText)) {
-          await approvalTarget.send(chunk)
-        }
-      }
+      await sendInterrupted(thinking, approvalTarget, latestText)
       return
     }
 
@@ -149,48 +136,11 @@ export const respond = async (
     }
     state.setUsage(sessionKey, result)
 
-    if (result.attachments && result.attachments.length > 0) {
-      await thinking.edit({
-        content: '✅添付付きで完了しました',
-        components: [],
-      })
-
-      const content = buildCompletedMessage(result.result)
-      if (content.trim()) {
-        for (const chunk of splitIntoChunks(content)) {
-          await approvalTarget.send(chunk)
-        }
-      }
-
-      await approvalTarget.send({
-        content: `📎 添付ファイル ${result.attachments.length} 件`,
-        files: result.attachments.map((attachment) => attachment.path),
-      })
-
-      await cleanupAttachmentOutputDir(attachmentOutputDir)
-      return
-    }
-
-    const completedContent = buildCompletedMessage(result.result)
-    await thinking.edit({ content: '✅完了', components: [] })
-    if (completedContent.trim()) {
-      for (const chunk of splitIntoChunks(completedContent)) {
-        await approvalTarget.send(chunk)
-      }
-    }
-    await cleanupAttachmentOutputDir(attachmentOutputDir)
+    await handleResult(result, thinking, approvalTarget, attachmentOutputDir)
   } catch (error) {
     clearInterval(interval)
     if (error instanceof DOMException && error.name === 'AbortError') {
-      await thinking.edit({
-        content: buildInterruptedMessage(''),
-        components: [],
-      })
-      if (latestText.trim()) {
-        for (const chunk of splitIntoChunks(latestText)) {
-          await approvalTarget.send(chunk)
-        }
-      }
+      await sendInterrupted(thinking, approvalTarget, latestText)
       return
     }
     const message = error instanceof Error ? error.message : String(error)
@@ -199,6 +149,68 @@ export const respond = async (
       components: [],
     })
   }
+}
+
+const buildCancelRow = () =>
+  new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('cancel')
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Danger),
+  )
+
+const sendInterrupted = async (
+  thinking: Message,
+  approvalTarget: ApprovalMessageTarget,
+  latestText: string,
+): Promise<void> => {
+  await thinking.edit({
+    content: buildInterruptedMessage(''),
+    components: [],
+  })
+  if (latestText.trim()) {
+    for (const chunk of splitIntoChunks(latestText)) {
+      await approvalTarget.send(chunk)
+    }
+  }
+}
+
+const handleResult = async (
+  result: AiResult,
+  thinking: Message,
+  approvalTarget: ApprovalMessageTarget,
+  attachmentOutputDir: string,
+): Promise<void> => {
+  if (result.attachments && result.attachments.length > 0) {
+    await thinking.edit({
+      content: '✅添付付きで完了しました',
+      components: [],
+    })
+
+    const content = buildCompletedMessage(result.result)
+    if (content.trim()) {
+      for (const chunk of splitIntoChunks(content)) {
+        await approvalTarget.send(chunk)
+      }
+    }
+
+    await approvalTarget.send({
+      content: `📎 添付ファイル ${result.attachments.length} 件`,
+      files: result.attachments.map((attachment) => attachment.path),
+    })
+
+    await cleanupAttachmentOutputDir(attachmentOutputDir)
+    return
+  }
+
+  const completedContent = buildCompletedMessage(result.result)
+  await thinking.edit({ content: '✅完了', components: [] })
+  if (completedContent.trim()) {
+    for (const chunk of splitIntoChunks(completedContent)) {
+      await approvalTarget.send(chunk)
+    }
+  }
+  await cleanupAttachmentOutputDir(attachmentOutputDir)
 }
 
 const cleanupAttachmentOutputDir = async (outputDir: string): Promise<void> => {
