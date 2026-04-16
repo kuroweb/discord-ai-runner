@@ -1,7 +1,6 @@
 import { randomUUID } from 'crypto'
 import { mkdir, readdir, rm } from 'fs/promises'
 import { dirname } from 'path'
-import { resolveAttachmentOutputDir } from './system-prompts'
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -10,13 +9,8 @@ import {
   type MessageCreateOptions,
 } from 'discord.js'
 import type { AiAdapter } from '../adapters'
-import {
-  resolveThreadCwd,
-  resolveThreadModel,
-  type createBotState,
-} from './state'
-import type { ApprovalMessageTarget } from './approval'
-import type { createApprovalManager } from './approval'
+import type { AiInput } from '../adapters/types'
+import type { ApprovalMessageTarget, createApprovalManager } from './approval'
 import {
   buildCompletedMessage,
   buildFailedMessage,
@@ -26,23 +20,14 @@ import {
   truncate,
   truncateTail,
 } from './messages'
-import type { AiInput } from '../adapters/types'
+import {
+  resolveThreadCwd,
+  resolveThreadModel,
+  type createBotState,
+} from './state'
+import { resolveAttachmentOutputDir } from './system-prompts'
 
 const EDIT_INTERVAL_MS = 1500
-
-async function cleanupAttachmentOutputDir(outputDir: string): Promise<void> {
-  await rm(outputDir, { recursive: true, force: true })
-
-  const threadDir = dirname(outputDir)
-  try {
-    const remaining = await readdir(threadDir)
-    if (remaining.length === 0) {
-      await rm(threadDir, { recursive: true, force: true })
-    }
-  } catch {
-    // cleanup failure is non-fatal
-  }
-}
 
 export interface SendTarget {
   send(content: string | MessageCreateOptions): Promise<Message>
@@ -54,14 +39,14 @@ interface RespondDependencies {
   approvalManager: ReturnType<typeof createApprovalManager>
 }
 
-export async function respond(
+export const respond = async (
   sendTarget: SendTarget,
   approvalTarget: ApprovalMessageTarget,
   input: AiInput,
   sessionKey: string,
   signal: AbortSignal,
   dependencies: RespondDependencies,
-): Promise<void> {
+): Promise<void> => {
   const { adapter, state, approvalManager } = dependencies
 
   if (signal.aborted) {
@@ -213,5 +198,19 @@ export async function respond(
       content: truncate(buildFailedMessage(message)),
       components: [],
     })
+  }
+}
+
+const cleanupAttachmentOutputDir = async (outputDir: string): Promise<void> => {
+  await rm(outputDir, { recursive: true, force: true })
+
+  const threadDir = dirname(outputDir)
+  try {
+    const remaining = await readdir(threadDir)
+    if (remaining.length === 0) {
+      await rm(threadDir, { recursive: true, force: true })
+    }
+  } catch {
+    // cleanup failure is non-fatal
   }
 }

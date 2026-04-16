@@ -1,18 +1,18 @@
-export function createThreadScheduler() {
+export const createThreadScheduler = () => {
   const queues = new Map<string, Promise<void>>()
   const controllers = new Map<string, AbortController>()
 
-  function abort(threadId: string): AbortSignal {
+  const abort = (threadId: string): AbortSignal => {
     controllers.get(threadId)?.abort()
     const controller = new AbortController()
     controllers.set(threadId, controller)
     return controller.signal
   }
 
-  async function enqueue(
+  const enqueue = async (
     threadId: string,
     task: () => Promise<void>,
-  ): Promise<void> {
+  ): Promise<void> => {
     const prev = queues.get(threadId) ?? Promise.resolve()
     const run = prev.catch(() => {}).then(task)
 
