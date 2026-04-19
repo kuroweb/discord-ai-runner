@@ -35,13 +35,11 @@ export const registerMessageHandler = (
   client.on('messageCreate', async (message) => {
     if (rejectBotMessage(message)) return
     if (await rejectPdfAttachment(message, adapterName)) return
-
-    if (state.isActiveThread(message.channel.id)) {
-      await handleThreadMessage(message, state, responseDependencies)
+    if (await handleThreadMessage(message, state, responseDependencies)) return
+    if (
+      await handleChannelMessage(message, client, state, responseDependencies)
+    )
       return
-    }
-
-    await handleChannelMessage(message, client, state, responseDependencies)
   })
 }
 
@@ -69,7 +67,9 @@ const handleThreadMessage = async (
   message: Message,
   state: ReturnType<typeof createBotState>,
   dependencies: Omit<HandlerDependencies, 'client' | 'adapterName'>,
-): Promise<void> => {
+): Promise<boolean> => {
+  if (!state.isActiveThread(message.channel.id)) return false
+
   syncThreadParentChannelId(message.channel, state)
   const input = await buildAiInputFromMessage(message)
   const channelTarget = {
@@ -86,6 +86,8 @@ const handleThreadMessage = async (
     channelTarget,
     dependencies,
   )
+
+  return true
 }
 
 const handleChannelMessage = async (
@@ -93,8 +95,8 @@ const handleChannelMessage = async (
   client: Client,
   state: ReturnType<typeof createBotState>,
   dependencies: Omit<HandlerDependencies, 'client' | 'adapterName'>,
-): Promise<void> => {
-  if (!isMentionToCurrentBot(message, client)) return
+): Promise<boolean> => {
+  if (!isMentionToCurrentBot(message, client)) return false
 
   const rawPrompt = message.content.replace(/<[@#][!&]?\d+>/g, '').trim()
   const input = await buildAiInputFromMessage(message, { content: rawPrompt })
@@ -109,6 +111,7 @@ const handleChannelMessage = async (
   state.save()
 
   await enqueueResponse(thread.id, input, thread, thread, dependencies)
+  return true
 }
 
 const isMentionToCurrentBot = (message: Message, client: Client): boolean => {
