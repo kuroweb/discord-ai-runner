@@ -8,8 +8,7 @@ import {
   type Message,
   type MessageCreateOptions,
 } from 'discord.js'
-import type { AiAdapter } from '../adapters'
-import type { AiInput, AiResult } from '../adapters/types'
+import type { AiAdapter, AiInput, AiResult } from '../adapters'
 import type { ApprovalMessageTarget, createApprovalManager } from './approval'
 import {
   buildCompletedMessage,
@@ -21,9 +20,9 @@ import {
   truncateTail,
 } from './messages'
 import {
+  type createBotState,
   resolveThreadCwd,
   resolveThreadModel,
-  type createBotState,
 } from './state'
 import { resolveAttachmentOutputDir } from './system-prompts'
 

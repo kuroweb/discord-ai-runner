@@ -1,5 +1,5 @@
 import { ChannelType } from 'discord.js'
-import type { AiInput } from '../../adapters/types'
+import type { AiInput } from '../../adapters'
 import { buildThreadName } from '../../bot/messages'
 import { respond } from '../../bot/respond'
 import type { BatchJob } from '../types'

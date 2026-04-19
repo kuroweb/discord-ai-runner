@@ -1,5 +1,5 @@
 import type { Client } from 'discord.js'
-import type { AiAdapter } from '../adapters/types'
+import type { AiAdapter } from '../adapters'
 import type { createApprovalManager } from '../bot/approval'
 import type { createBotState } from '../bot/state'
 import type { createThreadScheduler } from '../bot/thread-scheduler'

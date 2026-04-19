@@ -1,5 +1,5 @@
 import type { Attachment, Message } from 'discord.js'
-import type { AiInput, AiInputPart } from '../adapters/types'
+import type { AiInput, AiInputPart } from '../adapters'
 
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 

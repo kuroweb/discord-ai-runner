@@ -5,10 +5,37 @@ import type { AiAttachment } from './types'
 const MAX_ATTACHMENTS = 25
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
 
-async function walkFiles(
+export const collectAttachments = async (
+  outputDir: string | undefined,
+): Promise<AiAttachment[]> => {
+  if (!outputDir) return []
+
+  const rootDir = resolve(outputDir)
+  const filePaths = (await walkFiles(rootDir, rootDir)).slice(
+    0,
+    MAX_ATTACHMENTS,
+  )
+  const attachments: AiAttachment[] = []
+
+  for (const filePath of filePaths) {
+    const info = await stat(filePath)
+    if (!info.isFile()) continue
+    if (info.size > MAX_ATTACHMENT_BYTES) continue
+
+    attachments.push({
+      path: filePath,
+      name: basename(filePath),
+      size: info.size,
+    })
+  }
+
+  return attachments
+}
+
+const walkFiles = async (
   rootDir: string,
   currentDir: string,
-): Promise<string[]> {
+): Promise<string[]> => {
   let entries
   try {
     entries = await readdir(currentDir, { withFileTypes: true })
@@ -33,31 +60,4 @@ async function walkFiles(
   }
 
   return files
-}
-
-export async function collectAttachments(
-  outputDir: string | undefined,
-): Promise<AiAttachment[]> {
-  if (!outputDir) return []
-
-  const rootDir = resolve(outputDir)
-  const filePaths = (await walkFiles(rootDir, rootDir)).slice(
-    0,
-    MAX_ATTACHMENTS,
-  )
-  const attachments: AiAttachment[] = []
-
-  for (const filePath of filePaths) {
-    const info = await stat(filePath)
-    if (!info.isFile()) continue
-    if (info.size > MAX_ATTACHMENT_BYTES) continue
-
-    attachments.push({
-      path: filePath,
-      name: basename(filePath),
-      size: info.size,
-    })
-  }
-
-  return attachments
 }
