@@ -1,4 +1,4 @@
-import type { Client } from 'discord.js'
+import type { Client, Message } from 'discord.js'
 import type { AiAdapter } from '../adapters'
 import { buildThreadName } from './messages'
 import {
@@ -32,15 +32,8 @@ export const registerMessageHandler = (
   })
 
   client.on('messageCreate', async (message) => {
-    if (message.author.bot) return
-
-    const rejectsPdf = adapterName.trim().toLowerCase() === 'codex'
-    if (rejectsPdf && hasPdfAttachment(message)) {
-      await message.reply(
-        'Codex は現在 PDF 添付入力に対応していません。PDF なしで送るか、画像へ変換して送ってください。',
-      )
-      return
-    }
+    if (rejectBotMessage(message)) return
+    if (await rejectPdfAttachment(message, adapterName)) return
 
     const channel = message.channel
 
@@ -110,4 +103,24 @@ const enqueueResponse = async (
       approvalManager,
     })
   })
+}
+
+const rejectBotMessage = (message: Message): boolean => {
+  return message.author.bot
+}
+
+const rejectPdfAttachment = async (
+  message: Message,
+  adapterName: string,
+): Promise<boolean> => {
+  const rejectsPdf = adapterName.trim().toLowerCase() === 'codex'
+  if (!rejectsPdf || !hasPdfAttachment(message)) {
+    return false
+  }
+
+  await message.reply(
+    'Codex は現在 PDF 添付入力に対応していません。PDF なしで送るか、画像へ変換して送ってください。',
+  )
+
+  return true
 }
