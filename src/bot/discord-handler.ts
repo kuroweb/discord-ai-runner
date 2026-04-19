@@ -41,12 +41,7 @@ export const registerMessageHandler = (
       return
     }
 
-    await handleChannelMessage(
-      message,
-      client.user?.id,
-      state,
-      responseDependencies,
-    )
+    await handleChannelMessage(message, client, state, responseDependencies)
   })
 }
 
@@ -95,11 +90,11 @@ const handleThreadMessage = async (
 
 const handleChannelMessage = async (
   message: Message,
-  botUserId: string | undefined,
+  client: Client,
   state: ReturnType<typeof createBotState>,
   dependencies: Omit<HandlerDependencies, 'client' | 'adapterName'>,
 ): Promise<void> => {
-  if (!botUserId || !message.mentions.has(botUserId)) return
+  if (!isMentionToCurrentBot(message, client)) return
 
   const rawPrompt = message.content.replace(/<[@#][!&]?\d+>/g, '').trim()
   const input = await buildAiInputFromMessage(message, { content: rawPrompt })
@@ -114,6 +109,12 @@ const handleChannelMessage = async (
   state.save()
 
   await enqueueResponse(thread.id, input, thread, thread, dependencies)
+}
+
+const isMentionToCurrentBot = (message: Message, client: Client): boolean => {
+  if (!client.user) return false
+
+  return message.mentions.has(client.user.id)
 }
 
 const syncThreadParentChannelId = (
