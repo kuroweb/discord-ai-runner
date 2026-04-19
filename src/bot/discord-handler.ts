@@ -26,6 +26,7 @@ export const registerMessageHandler = (
 ): void => {
   const { client, adapterName, adapter, state, scheduler, approvalManager } =
     dependencies
+  const responseDependencies = { adapter, state, scheduler, approvalManager }
 
   client.on('interactionCreate', async (interaction) => {
     await interactionRouter(interaction, dependencies)
@@ -36,44 +37,16 @@ export const registerMessageHandler = (
     if (await rejectPdfAttachment(message, adapterName)) return
 
     if (state.isActiveThread(message.channel.id)) {
-      syncThreadParentChannelId(message.channel, state)
-      const input = await buildAiInputFromMessage(message)
-
-      await enqueueResponse(
-        message.channel.id,
-        input,
-        { send: (content) => message.channel.send(content) },
-        message.channel,
-        {
-          adapter,
-          state,
-          scheduler,
-          approvalManager,
-        },
-      )
+      await handleThreadMessage(message, state, responseDependencies)
       return
     }
 
-    if (!message.mentions.has(client.user!)) return
-
-    const rawPrompt = message.content.replace(/<[@#][!&]?\d+>/g, '').trim()
-    const input = await buildAiInputFromMessage(message, { content: rawPrompt })
-    const threadSummary = summarizeAiInput(input)
-
-    const thread = await message.startThread({
-      name: buildThreadName(threadSummary),
-      autoArchiveDuration: 1440,
-    })
-
-    state.activateThread(thread.id, message.channelId)
-    state.save()
-
-    await enqueueResponse(thread.id, input, thread, thread, {
-      adapter,
+    await handleChannelMessage(
+      message,
+      client.user?.id,
       state,
-      scheduler,
-      approvalManager,
-    })
+      responseDependencies,
+    )
   })
 }
 
@@ -95,6 +68,52 @@ const rejectPdfAttachment = async (
   )
 
   return true
+}
+
+const handleThreadMessage = async (
+  message: Message,
+  state: ReturnType<typeof createBotState>,
+  dependencies: Omit<HandlerDependencies, 'client' | 'adapterName'>,
+): Promise<void> => {
+  syncThreadParentChannelId(message.channel, state)
+  const input = await buildAiInputFromMessage(message)
+  const channelTarget = {
+    send: (content: string) =>
+      (message.channel as { send(value: string): Promise<Message> }).send(
+        content,
+      ),
+  }
+
+  await enqueueResponse(
+    message.channel.id,
+    input,
+    channelTarget,
+    channelTarget,
+    dependencies,
+  )
+}
+
+const handleChannelMessage = async (
+  message: Message,
+  botUserId: string | undefined,
+  state: ReturnType<typeof createBotState>,
+  dependencies: Omit<HandlerDependencies, 'client' | 'adapterName'>,
+): Promise<void> => {
+  if (!botUserId || !message.mentions.has(botUserId)) return
+
+  const rawPrompt = message.content.replace(/<[@#][!&]?\d+>/g, '').trim()
+  const input = await buildAiInputFromMessage(message, { content: rawPrompt })
+  const threadSummary = summarizeAiInput(input)
+
+  const thread = await message.startThread({
+    name: buildThreadName(threadSummary),
+    autoArchiveDuration: 1440,
+  })
+
+  state.activateThread(thread.id, message.channelId)
+  state.save()
+
+  await enqueueResponse(thread.id, input, thread, thread, dependencies)
 }
 
 const syncThreadParentChannelId = (
