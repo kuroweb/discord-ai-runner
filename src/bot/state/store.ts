@@ -13,7 +13,7 @@ interface PersistedState {
   channels: Record<string, { cwd?: string; model?: string }>
 }
 
-export function createBotState(stateFile: string) {
+export const createBotState = (stateFile: string) => {
   const activeThreads = new Set<string>()
   const sessions = new Map<string, string>()
   const threadCwds = new Map<string, string>()
@@ -23,7 +23,7 @@ export function createBotState(stateFile: string) {
   const threadChannelIds = new Map<string, string>()
   const threadUsage = new Map<string, AiResult>()
 
-  function load(): void {
+  const load = (): void => {
     try {
       const data = readFileSync(stateFile, 'utf-8')
       const state: PersistedState = JSON.parse(data)
@@ -46,7 +46,7 @@ export function createBotState(stateFile: string) {
     }
   }
 
-  function save(): void {
+  const save = (): void => {
     const threads: Record<string, PersistedThread> = {}
     for (const threadId of activeThreads) {
       threads[threadId] = {
@@ -67,87 +67,87 @@ export function createBotState(stateFile: string) {
     writeFileSync(stateFile, JSON.stringify(state, null, 2))
   }
 
-  function isActiveThread(threadId: string): boolean {
+  const isActiveThread = (threadId: string): boolean => {
     return activeThreads.has(threadId)
   }
 
-  function activateThread(threadId: string, channelId?: string): void {
+  const activateThread = (threadId: string, channelId?: string): void => {
     activeThreads.add(threadId)
     if (channelId) {
       threadChannelIds.set(threadId, channelId)
     }
   }
 
-  function getSession(threadId: string): string | undefined {
+  const getSession = (threadId: string): string | undefined => {
     return sessions.get(threadId)
   }
 
-  function setSession(threadId: string, sessionId: string): void {
+  const setSession = (threadId: string, sessionId: string): void => {
     sessions.set(threadId, sessionId)
   }
 
-  function clearSession(threadId: string): void {
+  const clearSession = (threadId: string): void => {
     sessions.delete(threadId)
     threadUsage.delete(threadId)
   }
 
-  function getThreadCwd(threadId: string): string | undefined {
+  const getThreadCwd = (threadId: string): string | undefined => {
     return threadCwds.get(threadId)
   }
 
-  function getThreadModel(threadId: string): string | undefined {
+  const getThreadModel = (threadId: string): string | undefined => {
     return threadModels.get(threadId)
   }
 
-  function setThreadCwd(threadId: string, cwd: string): void {
+  const setThreadCwd = (threadId: string, cwd: string): void => {
     threadCwds.set(threadId, cwd)
   }
 
-  function clearThreadCwd(threadId: string): void {
+  const clearThreadCwd = (threadId: string): void => {
     threadCwds.delete(threadId)
   }
 
-  function setThreadModel(threadId: string, model: string): void {
+  const setThreadModel = (threadId: string, model: string): void => {
     threadModels.set(threadId, model)
   }
 
-  function clearThreadModel(threadId: string): void {
+  const clearThreadModel = (threadId: string): void => {
     threadModels.delete(threadId)
   }
 
-  function getChannelCwd(channelId: string): string | undefined {
+  const getChannelCwd = (channelId: string): string | undefined => {
     return channelCwds.get(channelId)
   }
 
-  function setChannelCwd(channelId: string, cwd: string): void {
+  const setChannelCwd = (channelId: string, cwd: string): void => {
     channelCwds.set(channelId, cwd)
   }
 
-  function clearChannelCwd(channelId: string): void {
+  const clearChannelCwd = (channelId: string): void => {
     channelCwds.delete(channelId)
   }
 
-  function getChannelModel(channelId: string): string | undefined {
+  const getChannelModel = (channelId: string): string | undefined => {
     return channelModels.get(channelId)
   }
 
-  function setChannelModel(channelId: string, model: string): void {
+  const setChannelModel = (channelId: string, model: string): void => {
     channelModels.set(channelId, model)
   }
 
-  function clearChannelModel(channelId: string): void {
+  const clearChannelModel = (channelId: string): void => {
     channelModels.delete(channelId)
   }
 
-  function getThreadChannelId(threadId: string): string | undefined {
+  const getThreadChannelId = (threadId: string): string | undefined => {
     return threadChannelIds.get(threadId)
   }
 
-  function setThreadChannelId(threadId: string, channelId: string): void {
+  const setThreadChannelId = (threadId: string, channelId: string): void => {
     threadChannelIds.set(threadId, channelId)
   }
 
-  function closeThread(threadId: string): void {
+  const closeThread = (threadId: string): void => {
     activeThreads.delete(threadId)
     sessions.delete(threadId)
     threadCwds.delete(threadId)
@@ -156,11 +156,11 @@ export function createBotState(stateFile: string) {
     threadUsage.delete(threadId)
   }
 
-  function getUsage(threadId: string): AiResult | undefined {
+  const getUsage = (threadId: string): AiResult | undefined => {
     return threadUsage.get(threadId)
   }
 
-  function setUsage(threadId: string, usage: AiResult): void {
+  const setUsage = (threadId: string, usage: AiResult): void => {
     threadUsage.set(threadId, usage)
   }
 
