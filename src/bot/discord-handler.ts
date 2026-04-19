@@ -143,9 +143,8 @@ const enqueueResponse = async (
   dependencies: Omit<HandlerDependencies, 'client' | 'adapterName'>,
 ): Promise<void> => {
   const { adapter, state, scheduler, approvalManager } = dependencies
-  const signal = scheduler.abort(channelId)
 
-  await scheduler.enqueue(channelId, async () => {
+  await scheduler.enqueue(channelId, async (signal) => {
     await respond(sendTarget, approvalChannel, input, channelId, signal, {
       adapter,
       state,

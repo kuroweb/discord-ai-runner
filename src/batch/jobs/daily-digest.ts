@@ -84,8 +84,7 @@ export const dailyDigestJob: BatchJob = {
     ctx.approvalManager.enableAutoApprove(thread.id)
     console.log('[batch] daily-digest: state saved')
 
-    const signal = ctx.scheduler.abort(thread.id)
-    await ctx.scheduler.enqueue(thread.id, async () => {
+    await ctx.scheduler.enqueue(thread.id, async (signal) => {
       await respond(thread, thread, buildDigestPrompt(), thread.id, signal, {
         adapter: ctx.adapter,
         state: ctx.state,
