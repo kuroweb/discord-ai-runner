@@ -35,21 +35,12 @@ export const registerMessageHandler = (
     if (rejectBotMessage(message)) return
     if (await rejectPdfAttachment(message, adapterName)) return
 
-    const channel = message.channel
-
-    if (state.isActiveThread(channel.id)) {
-      if (channel.isThread() && channel.parentId) {
-        const savedChannelId = state.getThreadChannelId(channel.id)
-        if (savedChannelId !== channel.parentId) {
-          state.setThreadChannelId(channel.id, channel.parentId)
-          state.save()
-        }
-      }
-
+    if (state.isActiveThread(message.channel.id)) {
+      syncThreadParentChannelId(message.channel, state)
       const input = await buildAiInputFromMessage(message)
 
       await enqueueResponse(
-        channel.id,
+        message.channel.id,
         input,
         { send: (content) => message.channel.send(content) },
         message.channel,
@@ -86,25 +77,6 @@ export const registerMessageHandler = (
   })
 }
 
-const enqueueResponse = async (
-  channelId: string,
-  input: Parameters<typeof respond>[2],
-  sendTarget: Parameters<typeof respond>[0],
-  approvalChannel: Parameters<typeof respond>[1],
-  dependencies: Omit<HandlerDependencies, 'client' | 'adapterName'>,
-): Promise<void> => {
-  const { adapter, state, scheduler, approvalManager } = dependencies
-  const signal = scheduler.abort(channelId)
-
-  await scheduler.enqueue(channelId, async () => {
-    await respond(sendTarget, approvalChannel, input, channelId, signal, {
-      adapter,
-      state,
-      approvalManager,
-    })
-  })
-}
-
 const rejectBotMessage = (message: Message): boolean => {
   return message.author.bot
 }
@@ -123,4 +95,38 @@ const rejectPdfAttachment = async (
   )
 
   return true
+}
+
+const syncThreadParentChannelId = (
+  channel: Message['channel'],
+  state: ReturnType<typeof createBotState>,
+): void => {
+  if (!channel.isThread() || !channel.parentId) {
+    return
+  }
+
+  const savedChannelId = state.getThreadChannelId(channel.id)
+  if (savedChannelId !== channel.parentId) {
+    state.setThreadChannelId(channel.id, channel.parentId)
+    state.save()
+  }
+}
+
+const enqueueResponse = async (
+  channelId: string,
+  input: Parameters<typeof respond>[2],
+  sendTarget: Parameters<typeof respond>[0],
+  approvalChannel: Parameters<typeof respond>[1],
+  dependencies: Omit<HandlerDependencies, 'client' | 'adapterName'>,
+): Promise<void> => {
+  const { adapter, state, scheduler, approvalManager } = dependencies
+  const signal = scheduler.abort(channelId)
+
+  await scheduler.enqueue(channelId, async () => {
+    await respond(sendTarget, approvalChannel, input, channelId, signal, {
+      adapter,
+      state,
+      approvalManager,
+    })
+  })
 }
