@@ -47,14 +47,12 @@ export const respond = async (
   signal: AbortSignal,
   dependencies: RespondDependencies,
 ): Promise<void> => {
+  if (signal.aborted) return
+
   const { adapter, state, approvalManager } = dependencies
-
-  if (signal.aborted) {
-    return
-  }
-
   const sessionId = state.getSession(sessionKey)
   const cancelRow = buildCancelRow()
+
   const thinking = await sendTarget.send({
     content: '🔄処理中...',
     components: [cancelRow],
@@ -64,14 +62,9 @@ export const respond = async (
   let dirty = false
   const startedAt = Date.now()
   let lastRenderedSec = -1
-  const abortController = new AbortController()
-  signal.addEventListener('abort', () => abortController.abort(), {
-    once: true,
-  })
-  const turnId = randomUUID()
-  const attachmentOutputDir = resolveAttachmentOutputDir(sessionKey, turnId)
 
-  await mkdir(attachmentOutputDir, { recursive: true })
+  const abortController = createRunAbortController(signal)
+  const attachmentOutputDir = await createAttachmentOutputDir(sessionKey)
 
   const interval = setInterval(async () => {
     if (signal.aborted) {
@@ -86,24 +79,14 @@ export const respond = async (
     lastRenderedSec = elapsedSec
 
     try {
-      await thinking.edit({
-        content: truncateTail(
-          buildProgressMessage(Date.now() - startedAt, latestText),
-        ),
-        components: [cancelRow],
-      })
+      await renderProgress(thinking, cancelRow, startedAt, latestText)
     } catch {
       // 編集失敗は無視
     }
   }, EDIT_INTERVAL_MS)
 
   try {
-    await thinking.edit({
-      content: truncateTail(
-        buildProgressMessage(Date.now() - startedAt, latestText),
-      ),
-      components: [cancelRow],
-    })
+    await renderProgress(thinking, cancelRow, startedAt, latestText)
 
     const result = await adapter.run(input, sessionId, {
       cwd: resolveThreadCwd(state, sessionKey),
@@ -159,6 +142,33 @@ const buildCancelRow = () =>
       .setLabel('Cancel')
       .setStyle(ButtonStyle.Danger),
   )
+
+const createRunAbortController = (signal: AbortSignal): AbortController => {
+  const abortController = new AbortController()
+  signal.addEventListener('abort', () => abortController.abort(), {
+    once: true,
+  })
+  return abortController
+}
+
+const createAttachmentOutputDir = async (sessionKey: string): Promise<string> => {
+  const turnId = randomUUID()
+  const attachmentOutputDir = resolveAttachmentOutputDir(sessionKey, turnId)
+  await mkdir(attachmentOutputDir, { recursive: true })
+  return attachmentOutputDir
+}
+
+const renderProgress = async (
+  thinking: Message,
+  cancelRow: ActionRowBuilder<ButtonBuilder>,
+  startedAt: number,
+  latestText: string,
+): Promise<void> => {
+  await thinking.edit({
+    content: truncateTail(buildProgressMessage(Date.now() - startedAt, latestText)),
+    components: [cancelRow],
+  })
+}
 
 const sendInterrupted = async (
   thinking: Message,
