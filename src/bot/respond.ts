@@ -179,11 +179,7 @@ const sendInterrupted = async (
     content: buildInterruptedMessage(''),
     components: [],
   })
-  if (latestText.trim()) {
-    for (const chunk of splitIntoChunks(latestText)) {
-      await approvalTarget.send(chunk)
-    }
-  }
+  await sendChunkedText(approvalTarget, latestText)
 }
 
 const handleResult = async (
@@ -199,11 +195,7 @@ const handleResult = async (
     })
 
     const content = buildCompletedMessage(result.result)
-    if (content.trim()) {
-      for (const chunk of splitIntoChunks(content)) {
-        await approvalTarget.send(chunk)
-      }
-    }
+    await sendChunkedText(approvalTarget, content)
 
     await approvalTarget.send({
       content: `📎 添付ファイル ${result.attachments.length} 件`,
@@ -216,12 +208,19 @@ const handleResult = async (
 
   const completedContent = buildCompletedMessage(result.result)
   await thinking.edit({ content: '✅完了', components: [] })
-  if (completedContent.trim()) {
-    for (const chunk of splitIntoChunks(completedContent)) {
-      await approvalTarget.send(chunk)
-    }
-  }
+  await sendChunkedText(approvalTarget, completedContent)
   await cleanupAttachmentOutputDir(attachmentOutputDir)
+}
+
+const sendChunkedText = async (
+  approvalTarget: ApprovalMessageTarget,
+  text: string,
+): Promise<void> => {
+  if (!text.trim()) return
+
+  for (const chunk of splitIntoChunks(text)) {
+    await approvalTarget.send(chunk)
+  }
 }
 
 const cleanupAttachmentOutputDir = async (outputDir: string): Promise<void> => {
