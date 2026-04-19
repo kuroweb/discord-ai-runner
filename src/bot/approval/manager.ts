@@ -21,12 +21,102 @@ export type ApprovalMessageTarget = {
 
 const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000
 
-function buildApprovalMessage(
+export const createApprovalManager = () => {
+  const pending = new Map<string, PendingApproval>()
+  const autoApproveChannels = new Set<string>()
+
+  const requestApproval = async (
+    target: ApprovalMessageTarget,
+    channelId: string,
+    toolName: string,
+    input: Record<string, unknown>,
+    abortController: AbortController,
+  ): Promise<ToolApprovalDecision> => {
+    const signal = abortController.signal
+    const highRisk = isHighRiskOperation(toolName, input)
+    if (autoApproveChannels.has(channelId) && !highRisk) return 'approve'
+
+    const requestId = randomUUID()
+    await target.send(
+      buildApprovalMessage(requestId, toolName, input, highRisk),
+    )
+
+    return new Promise<ToolApprovalDecision>((resolve) => {
+      let settled = false
+      const settle = (decision: ToolApprovalDecision): void => {
+        if (settled) return
+        settled = true
+        resolve(decision)
+      }
+      const timer = setTimeout(() => {
+        pending.delete(requestId)
+        abortController.abort()
+        settle('deny')
+      }, APPROVAL_TIMEOUT_MS)
+      if (signal.aborted) {
+        clearTimeout(timer)
+        settle('deny')
+        return
+      }
+      const handleAbort = () => {
+        pending.delete(requestId)
+        clearTimeout(timer)
+        settle('deny')
+      }
+      signal.addEventListener('abort', handleAbort, { once: true })
+
+      pending.set(requestId, {
+        channelId,
+        resolve: (decision) => {
+          signal.removeEventListener('abort', handleAbort)
+          clearTimeout(timer)
+          if (decision === 'approve-all') {
+            autoApproveChannels.add(channelId)
+          }
+          settle(decision)
+        },
+        timer,
+      })
+    })
+  }
+
+  const resolveApproval = (
+    requestId: string,
+    decision: ToolApprovalDecision,
+  ): boolean => {
+    const request = pending.get(requestId)
+    if (!request) return false
+    pending.delete(requestId)
+    clearTimeout(request.timer)
+    request.resolve(decision)
+    return true
+  }
+
+  const clearAutoApprove = (channelId: string): void => {
+    autoApproveChannels.delete(channelId)
+  }
+
+  const enableAutoApprove = (channelId: string): void => {
+    autoApproveChannels.add(channelId)
+  }
+
+  return {
+    requestApproval,
+    resolveApproval,
+    clearAutoApprove,
+    enableAutoApprove,
+  }
+}
+
+const buildApprovalMessage = (
   requestId: string,
   toolName: string,
   input: Record<string, unknown>,
   highRisk: boolean,
-) {
+): {
+  embeds: EmbedBuilder[]
+  components: ActionRowBuilder<ButtonBuilder>[]
+} => {
   const embed = new EmbedBuilder()
     .setTitle(`🔧 ツール実行承認: ${toolName}`)
     .setColor(highRisk ? '#e74c3c' : '#f39c12')
@@ -57,11 +147,11 @@ function buildApprovalMessage(
   return { embeds: [embed], components }
 }
 
-function truncate(text: string, maxLen: number): string {
+const truncate = (text: string, maxLen: number): string => {
   return text.length <= maxLen ? text : `${text.slice(0, maxLen - 1)}…`
 }
 
-function formatApprovalInput(input: Record<string, unknown>): string {
+const formatApprovalInput = (input: Record<string, unknown>): string => {
   if (typeof input.command === 'string') {
     return `\`\`\`bash\n${truncate(input.command, 900)}\n\`\`\``
   }
@@ -70,70 +160,4 @@ function formatApprovalInput(input: Record<string, unknown>): string {
   }
   const serialized = JSON.stringify(input, null, 2) ?? '{}'
   return `\`\`\`json\n${truncate(serialized, 900)}\n\`\`\``
-}
-
-export function createApprovalManager() {
-  const pending = new Map<string, PendingApproval>()
-  const autoApproveChannels = new Set<string>()
-
-  async function requestApproval(
-    target: ApprovalMessageTarget,
-    channelId: string,
-    toolName: string,
-    input: Record<string, unknown>,
-  ): Promise<ToolApprovalDecision> {
-    const highRisk = isHighRiskOperation(toolName, input)
-    if (autoApproveChannels.has(channelId) && !highRisk) return 'approve'
-
-    const requestId = randomUUID()
-    await target.send(
-      buildApprovalMessage(requestId, toolName, input, highRisk),
-    )
-
-    return new Promise<ToolApprovalDecision>((resolve) => {
-      const timer = setTimeout(() => {
-        pending.delete(requestId)
-        resolve('deny')
-      }, APPROVAL_TIMEOUT_MS)
-
-      pending.set(requestId, {
-        channelId,
-        resolve: (decision) => {
-          clearTimeout(timer)
-          if (decision === 'approve-all') {
-            autoApproveChannels.add(channelId)
-          }
-          resolve(decision)
-        },
-        timer,
-      })
-    })
-  }
-
-  function resolveApproval(
-    requestId: string,
-    decision: ToolApprovalDecision,
-  ): boolean {
-    const request = pending.get(requestId)
-    if (!request) return false
-    pending.delete(requestId)
-    clearTimeout(request.timer)
-    request.resolve(decision)
-    return true
-  }
-
-  function clearAutoApprove(channelId: string): void {
-    autoApproveChannels.delete(channelId)
-  }
-
-  function enableAutoApprove(channelId: string): void {
-    autoApproveChannels.add(channelId)
-  }
-
-  return {
-    requestApproval,
-    resolveApproval,
-    clearAutoApprove,
-    enableAutoApprove,
-  }
 }

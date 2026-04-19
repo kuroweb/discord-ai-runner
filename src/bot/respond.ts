@@ -120,6 +120,7 @@ export const respond = async (
           sessionKey,
           request.toolName,
           request.input,
+          abortController,
         ),
     })
 
