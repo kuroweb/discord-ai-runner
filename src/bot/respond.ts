@@ -201,14 +201,12 @@ const handleResult = async (
       content: `📎 添付ファイル ${result.attachments.length} 件`,
       files: result.attachments.map((attachment) => attachment.path),
     })
-
-    await cleanupAttachmentOutputDir(attachmentOutputDir)
-    return
+  } else {
+    const completedContent = buildCompletedMessage(result.result)
+    await thinking.edit({ content: '✅完了', components: [] })
+    await sendChunkedText(approvalTarget, completedContent)
   }
 
-  const completedContent = buildCompletedMessage(result.result)
-  await thinking.edit({ content: '✅完了', components: [] })
-  await sendChunkedText(approvalTarget, completedContent)
   await cleanupAttachmentOutputDir(attachmentOutputDir)
 }
 
