@@ -15,9 +15,6 @@
   <key>WorkingDirectory</key>
   <string>/Users/user/environment/discord-ai-runner-codex</string>
 
-  <key>UserName</key>
-  <string>user</string>
-
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
