@@ -7,10 +7,9 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/local/bin/rclone</string>
-    <string>mount</string>
-    <string>Google_Drive:agent_share</string>
-    <string>/Users/user/google_drive/agent_share</string>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>until /usr/bin/dscacheutil -q host -a name www.googleapis.com >/dev/null 2>&amp;1; do /bin/sleep 5; done; exec /usr/local/bin/rclone mount Google_Drive:agent_share /Users/user/google_drive/agent_share</string>
   </array>
 
   <key>UserName</key>
