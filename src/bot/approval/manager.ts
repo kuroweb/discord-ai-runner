@@ -37,39 +37,36 @@ export const createApprovalManager = () => {
     if (autoApproveChannels.has(channelId) && !highRisk) return 'approve'
 
     const requestId = randomUUID()
-    await target.send(
-      buildApprovalMessage(requestId, toolName, input, highRisk),
-    )
-
     return new Promise<ToolApprovalDecision>((resolve) => {
       let settled = false
       const settle = (decision: ToolApprovalDecision): void => {
         if (settled) return
         settled = true
+        pending.delete(requestId)
+        signal.removeEventListener('abort', handleAbort)
+        clearTimeout(timer)
         resolve(decision)
       }
+
       const timer = setTimeout(() => {
-        pending.delete(requestId)
         abortController.abort()
         settle('deny')
       }, APPROVAL_TIMEOUT_MS)
+
+      const handleAbort = () => {
+        settle('deny')
+      }
+
       if (signal.aborted) {
-        clearTimeout(timer)
         settle('deny')
         return
       }
-      const handleAbort = () => {
-        pending.delete(requestId)
-        clearTimeout(timer)
-        settle('deny')
-      }
+
       signal.addEventListener('abort', handleAbort, { once: true })
 
       pending.set(requestId, {
         channelId,
         resolve: (decision) => {
-          signal.removeEventListener('abort', handleAbort)
-          clearTimeout(timer)
           if (decision === 'approve-all') {
             autoApproveChannels.add(channelId)
           }
@@ -77,6 +74,12 @@ export const createApprovalManager = () => {
         },
         timer,
       })
+
+      void target
+        .send(buildApprovalMessage(requestId, toolName, input, highRisk))
+        .catch(() => {
+          settle('deny')
+        })
     })
   }
 
@@ -86,8 +89,6 @@ export const createApprovalManager = () => {
   ): boolean => {
     const request = pending.get(requestId)
     if (!request) return false
-    pending.delete(requestId)
-    clearTimeout(request.timer)
     request.resolve(decision)
     return true
   }
