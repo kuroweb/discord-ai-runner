@@ -12,6 +12,9 @@
     <string>start</string>
   </array>
 
+  <key>UserName</key>
+  <string>user</string>
+
   <key>WorkingDirectory</key>
   <string>/Users/user/environment/discord-ai-runner-claude</string>
 
