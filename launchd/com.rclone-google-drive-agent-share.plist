@@ -11,9 +11,6 @@
     <string>mount</string>
     <string>Google_Drive:agent_share</string>
     <string>/Users/user/google_drive/agent_share</string>
-    <string>--allow-other</string>
-    <string>--vfs-cache-mode</string>
-    <string>writes</string>
   </array>
 
   <key>UserName</key>
