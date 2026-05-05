@@ -9,7 +9,7 @@
   <array>
     <string>/bin/zsh</string>
     <string>-lc</string>
-    <string>until /usr/bin/dscacheutil -q host -a name www.googleapis.com >/dev/null 2>&amp;1; do /bin/sleep 5; done; exec /usr/local/bin/rclone mount Google_Drive:agent_share /Users/user/google_drive/agent_share</string>
+    <string>until /usr/bin/dscacheutil -q host -a name www.googleapis.com | /usr/bin/awk '/^ip_address: /{ok=1} END{exit !ok}'; do /bin/sleep 5; done; exec /usr/local/bin/rclone mount Google_Drive:agent_share /Users/user/google_drive/agent_share</string>
   </array>
 
   <key>UserName</key>
