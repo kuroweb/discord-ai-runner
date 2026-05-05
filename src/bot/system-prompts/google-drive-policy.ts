@@ -1,5 +1,5 @@
 export const GOOGLE_DRIVE_SHARE_DIR =
-  '~/Google Drive/マイドライブ/agent_share'
+  '~/google_drive/agent_share'
 
 const googleDrivePolicyTemplate = `Google Drive 連携用ディレクトリ:
 {{googleDriveShareDir}}
