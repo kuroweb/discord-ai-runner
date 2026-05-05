@@ -123,7 +123,9 @@ git clone <REMOTE_URL> /Users/user/environment/discord-ai-runner-codex
 git clone <REMOTE_URL> /Users/user/environment/discord-ai-runner-claude
 ```
 
-### 1. クローン先パスの確認
+### Discord Bot を常駐（codex / claude）
+
+#### クローン先パスの確認
 
 `launchd/com.discord-ai-runner-codex.plist` と `launchd/com.discord-ai-runner-claude.plist` は、次の絶対パスを前提にしている。
 
@@ -143,7 +145,7 @@ git clone <REMOTE_URL> /Users/user/environment/discord-ai-runner-claude
 plutil -lint launchd/com.discord-ai-runner-codex.plist launchd/com.discord-ai-runner-claude.plist
 ```
 
-### 2. サービス導入（codex）
+#### サービス導入（codex）
 
 ```bash
 mkdir -p /Users/user/environment/discord-ai-runner-codex/logs
@@ -155,7 +157,7 @@ sudo launchctl enable system/com.discord-ai-runner-codex
 sudo launchctl kickstart -k system/com.discord-ai-runner-codex
 ```
 
-### 3. サービス導入（claude）
+#### サービス導入（claude）
 
 ```bash
 mkdir -p /Users/user/environment/discord-ai-runner-claude/logs
@@ -167,28 +169,28 @@ sudo launchctl enable system/com.discord-ai-runner-claude
 sudo launchctl kickstart -k system/com.discord-ai-runner-claude
 ```
 
-### 状態確認
+#### 状態確認
 
 ```bash
 sudo launchctl print system/com.discord-ai-runner-codex | rg "state =|pid =|last exit code"
 sudo launchctl print system/com.discord-ai-runner-claude | rg "state =|pid =|last exit code"
 ```
 
-### ログ確認
+#### ログ確認
 
 ```bash
 tail -f /Users/user/environment/discord-ai-runner-codex/logs/launchd.out.log /Users/user/environment/discord-ai-runner-codex/logs/launchd.err.log
 tail -f /Users/user/environment/discord-ai-runner-claude/logs/launchd.out.log /Users/user/environment/discord-ai-runner-claude/logs/launchd.err.log
 ```
 
-### 再起動
+#### 再起動
 
 ```bash
 sudo launchctl kickstart -k system/com.discord-ai-runner-codex
 sudo launchctl kickstart -k system/com.discord-ai-runner-claude
 ```
 
-### plist 変更反映（codex）
+#### plist 変更反映（codex）
 
 ```bash
 sudo launchctl bootout system/com.discord-ai-runner-codex
@@ -200,7 +202,7 @@ sudo launchctl enable system/com.discord-ai-runner-codex
 sudo launchctl kickstart -k system/com.discord-ai-runner-codex
 ```
 
-### plist 変更反映（claude）
+#### plist 変更反映（claude）
 
 ```bash
 sudo launchctl bootout system/com.discord-ai-runner-claude
@@ -212,13 +214,48 @@ sudo launchctl enable system/com.discord-ai-runner-claude
 sudo launchctl kickstart -k system/com.discord-ai-runner-claude
 ```
 
-### 停止 / 無効化
+#### 停止 / 無効化
 
 ```bash
 sudo launchctl bootout system/com.discord-ai-runner-codex
 sudo launchctl disable system/com.discord-ai-runner-codex
 sudo launchctl bootout system/com.discord-ai-runner-claude
 sudo launchctl disable system/com.discord-ai-runner-claude
+```
+
+### rcloneでGoogle Driveをマウント
+
+`rclone mount Google_Drive:agent_share ~/google_drive/agent_share` を常駐する場合は、
+`launchd/com.rclone-google-drive-agent-share.plist` を LaunchDaemon として導入する。
+
+この plist は以下の固定パスを前提にしている。
+
+- `rclone`: `/usr/local/bin/rclone`（公式配布バイナリ）
+- mount 先: `/Users/user/google_drive/agent_share`
+- ログ: `/Users/user/environment/discord-ai-runner/logs/rclone-agent-share.{out,err}.log`
+
+```bash
+mkdir -p /Users/user/google_drive/agent_share /Users/user/environment/discord-ai-runner/logs
+plutil -lint launchd/com.rclone-google-drive-agent-share.plist
+sudo cp launchd/com.rclone-google-drive-agent-share.plist /Library/LaunchDaemons/com.rclone-google-drive-agent-share.plist
+sudo chown root:wheel /Library/LaunchDaemons/com.rclone-google-drive-agent-share.plist
+sudo chmod 644 /Library/LaunchDaemons/com.rclone-google-drive-agent-share.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.rclone-google-drive-agent-share.plist
+sudo launchctl enable system/com.rclone-google-drive-agent-share
+sudo launchctl kickstart -k system/com.rclone-google-drive-agent-share
+```
+
+#### 状態確認
+
+```bash
+sudo launchctl print system/com.rclone-google-drive-agent-share | rg "state =|pid =|last exit code"
+```
+
+#### 停止 / 無効化
+
+```bash
+sudo launchctl bootout system/com.rclone-google-drive-agent-share
+sudo launchctl disable system/com.rclone-google-drive-agent-share
 ```
 
 ## デプロイ後の反映

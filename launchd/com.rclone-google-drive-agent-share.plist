@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.rclone-google-drive-agent-share</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/rclone</string>
+    <string>mount</string>
+    <string>Google_Drive:agent_share</string>
+    <string>/Users/user/google_drive/agent_share</string>
+    <string>--allow-other</string>
+    <string>--vfs-cache-mode</string>
+    <string>writes</string>
+  </array>
+
+  <key>UserName</key>
+  <string>user</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <dict>
+    <key>NetworkState</key>
+    <true/>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/user/environment/discord-ai-runner/logs/rclone-agent-share.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/user/environment/discord-ai-runner/logs/rclone-agent-share.err.log</string>
+</dict>
+</plist>
