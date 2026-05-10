@@ -70,6 +70,7 @@ cp .env.example .env
 | -------------------------- | ---- | ----------------------------------------------------------- |
 | `DISCORD_TOKEN`            | 必須 | Discord Bot Token                                           |
 | `AI_ADAPTER`               | 任意 | 使用するアダプタ。`claude` がデフォルト、`codex` も指定可能 |
+| `BATCH_ENABLED`            | 任意 | `true` のときだけバッチ実行を有効化（ジョブ管理は `/batch`）     |
 | `ANTHROPIC_MODELS_API_KEY` | 任意 | `/models` で Anthropic モデル一覧を取得するときに使用       |
 | `OPENAI_MODELS_API_KEY`    | 任意 | `AI_ADAPTER=codex` で `/models` を使うときに使用            |
 
@@ -90,6 +91,7 @@ cp .env.example .env
 | `/sync-thread-name`             | スレッド内                 | 現在のセッション summary を使ってスレッド名を更新。AI アダプタが summary 取得に未対応の場合は利用不可                     |
 | `/diff-preview-html [file]`     | スレッド内                 | 現在の作業ディレクトリの `git diff` を HTML 添付で返す。`file` 指定時はその相対パスの差分のみ対象                         |
 | `/diff-preview-markdown [file]` | スレッド内                 | 現在の作業ディレクトリの `git diff` を Markdown コードブロックで返す。`file` 指定時はその相対パスの差分のみ対象           |
+| `/batch (list/create/edit/delete)` | サーバー内（`ManageGuild` 必須） | バッチジョブを一覧・作成・編集・削除する                                                                                     |
 
 ## npm scripts
 
@@ -283,3 +285,9 @@ sudo launchctl kickstart -k system/com.discord-ai-runner-claude
   - `AI_ADAPTER` に応じて `ANTHROPIC_MODELS_API_KEY` または `OPENAI_MODELS_API_KEY` を設定しているか確認
 - スラッシュコマンドが表示されない
   - Discord クライアントをリロードして再確認
+
+## docs
+
+| ドキュメント | 概要 |
+| --- | --- |
+| [`docs/batch.md`](docs/batch.md) | `/batch` の挙動詳細 |
