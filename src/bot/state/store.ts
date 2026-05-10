@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs'
 import type { AiResult } from '../../adapters'
+import type { BatchJob } from '../../batch/types'
 
 interface PersistedThread {
   sessionId?: string
@@ -11,6 +12,7 @@ interface PersistedThread {
 interface PersistedState {
   threads: Record<string, PersistedThread>
   channels: Record<string, { cwd?: string; model?: string }>
+  batchJobs?: BatchJob[]
 }
 
 export const createBotState = (stateFile: string) => {
@@ -22,6 +24,7 @@ export const createBotState = (stateFile: string) => {
   const channelModels = new Map<string, string>()
   const threadChannelIds = new Map<string, string>()
   const threadUsage = new Map<string, AiResult>()
+  const batchJobs = new Map<string, BatchJob>()
 
   const load = (): void => {
     try {
@@ -38,11 +41,35 @@ export const createBotState = (stateFile: string) => {
         if (channel.cwd) channelCwds.set(channelId, channel.cwd)
         if (channel.model) channelModels.set(channelId, channel.model)
       }
+      for (const batchJob of state.batchJobs ?? []) {
+        if (
+          typeof batchJob?.id !== 'string' ||
+          (batchJob?.name !== undefined && typeof batchJob?.name !== 'string') ||
+          typeof batchJob?.cron !== 'string' ||
+          typeof batchJob?.channelId !== 'string' ||
+          typeof batchJob?.message !== 'string'
+        ) {
+          continue
+        }
+        batchJobs.set(batchJob.id, {
+          ...batchJob,
+          name: batchJob.name?.trim() || batchJob.id,
+        })
+      }
       console.log(
-        `[state] 復元: threads=${activeThreads.size}, sessions=${sessions.size}`,
+        `[state] 復元: threads=${activeThreads.size}, sessions=${sessions.size}, batchJobs=${batchJobs.size}`,
       )
-    } catch {
-      // ファイルが存在しない場合は無視
+    } catch (error) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        // ファイルが存在しない場合は無視
+        return
+      }
+      console.error('[state] 復元に失敗しました', error)
     }
   }
 
@@ -63,8 +90,63 @@ export const createBotState = (stateFile: string) => {
     for (const [channelId, model] of channelModels) {
       channels[channelId] = { ...channels[channelId], model }
     }
-    const state: PersistedState = { threads, channels }
+    const state: PersistedState = {
+      threads,
+      channels,
+      batchJobs: Array.from(batchJobs.values()).sort((a, b) =>
+        a.id.localeCompare(b.id),
+      ),
+    }
     writeFileSync(stateFile, JSON.stringify(state, null, 2))
+  }
+
+  const listBatchJobs = (channelId?: string): BatchJob[] => {
+    const jobs = Array.from(batchJobs.values())
+      .filter((job) => (channelId ? job.channelId === channelId : true))
+      .sort((a, b) => a.id.localeCompare(b.id))
+    return jobs
+  }
+
+  const getBatchJob = (id: string): BatchJob | undefined => {
+    return batchJobs.get(id)
+  }
+
+  const createBatchJob = ({
+    name,
+    cron,
+    channelId,
+    message,
+  }: Omit<BatchJob, 'id'>): BatchJob => {
+    const id = (() => {
+      while (true) {
+        const candidate = `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+        if (!batchJobs.has(candidate)) {
+          return candidate
+        }
+      }
+    })()
+    const job: BatchJob = { id, name, cron, channelId, message }
+    batchJobs.set(job.id, job)
+    return job
+  }
+
+  const updateBatchJob = (
+    id: string,
+    patch: Partial<Omit<BatchJob, 'id'>>,
+  ): BatchJob | null => {
+    const current = batchJobs.get(id)
+    if (!current) return null
+    const next: BatchJob = {
+      ...current,
+      ...patch,
+      id: current.id,
+    }
+    batchJobs.set(id, next)
+    return next
+  }
+
+  const deleteBatchJob = (id: string): boolean => {
+    return batchJobs.delete(id)
   }
 
   const isActiveThread = (threadId: string): boolean => {
@@ -189,5 +271,10 @@ export const createBotState = (stateFile: string) => {
     closeThread,
     getUsage,
     setUsage,
+    listBatchJobs,
+    getBatchJob,
+    createBatchJob,
+    updateBatchJob,
+    deleteBatchJob,
   }
 }

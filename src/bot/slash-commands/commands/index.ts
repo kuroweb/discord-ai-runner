@@ -1,3 +1,4 @@
+export * from './batches'
 export * from './close'
 export * from './cwd'
 export * from './diff-preview'

@@ -6,14 +6,16 @@ import { registerSlashCommands } from './bot/slash-commands'
 import { createBotState } from './bot/state'
 import { createThreadScheduler } from './bot/thread-scheduler'
 import { createApprovalManager } from './bot/approval'
-import { createBatchRunner, schedule } from './batch'
+import { createBatchRunner } from './batch'
+
+const state = createBotState('.state.json')
+state.load()
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
 if (!DISCORD_TOKEN) throw new Error('DISCORD_TOKEN が設定されていません')
 
 const adapterName = process.env.AI_ADAPTER ?? 'claude'
 const adapter = createAdapter(adapterName)
-const state = createBotState('.state.json')
 const scheduler = createThreadScheduler()
 const approvalManager = createApprovalManager()
 
@@ -32,9 +34,8 @@ const batchRunner = createBatchRunner({
   scheduler,
   approvalManager,
 })
-schedule.forEach(({ cron, job, channelId }) =>
-  batchRunner.register(cron, job, channelId),
-)
+
+state.listBatchJobs().forEach((job) => batchRunner.add(job))
 
 registerMessageHandler({
   client,
@@ -43,6 +44,7 @@ registerMessageHandler({
   state,
   scheduler,
   approvalManager,
+  batchRunner,
 })
 
 if (process.env.BATCH_ENABLED === 'true') {
@@ -61,5 +63,4 @@ client.once('clientReady', async () => {
   }
 })
 
-state.load()
 client.login(DISCORD_TOKEN)

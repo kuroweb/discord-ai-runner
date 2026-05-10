@@ -1,4 +1,5 @@
 import type { AiAdapter } from '../../adapters'
+import type { createBatchRunner } from '../../batch'
 import type { createApprovalManager } from '../approval'
 import type { createBotState } from '../state'
 import type { createThreadScheduler } from '../thread-scheduler'
@@ -9,4 +10,5 @@ export interface CommandDependencies {
   state: ReturnType<typeof createBotState>
   scheduler: ReturnType<typeof createThreadScheduler>
   approvalManager: ReturnType<typeof createApprovalManager>
+  batchRunner: ReturnType<typeof createBatchRunner>
 }

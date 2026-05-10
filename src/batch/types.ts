@@ -19,5 +19,8 @@ export type JobContext = {
 
 export type BatchJob = {
   id: string
-  run: (ctx: JobContext) => Promise<void>
+  name: string
+  cron: string
+  channelId: string
+  message: string
 }

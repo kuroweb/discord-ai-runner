@@ -1,5 +1,6 @@
 import type { Client, Message } from 'discord.js'
 import type { AiAdapter } from '../adapters'
+import type { createBatchRunner } from '../batch'
 import { buildThreadName } from './messages'
 import {
   buildAiInputFromMessage,
@@ -19,14 +20,28 @@ interface HandlerDependencies {
   state: ReturnType<typeof createBotState>
   scheduler: ReturnType<typeof createThreadScheduler>
   approvalManager: ReturnType<typeof createApprovalManager>
+  batchRunner: ReturnType<typeof createBatchRunner>
 }
 
 export const registerMessageHandler = (
   dependencies: HandlerDependencies,
 ): void => {
-  const { client, adapterName, adapter, state, scheduler, approvalManager } =
-    dependencies
-  const responseDependencies = { adapter, state, scheduler, approvalManager }
+  const {
+    client,
+    adapterName,
+    adapter,
+    state,
+    scheduler,
+    approvalManager,
+    batchRunner,
+  } = dependencies
+  const responseDependencies = {
+    adapter,
+    state,
+    scheduler,
+    approvalManager,
+    batchRunner,
+  }
 
   client.on('interactionCreate', async (interaction) => {
     await interactionRouter(interaction, dependencies)

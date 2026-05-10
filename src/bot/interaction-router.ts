@@ -1,10 +1,16 @@
 import type {
   ButtonInteraction,
+  ChannelSelectMenuInteraction,
   ChatInputCommandInteraction,
   Interaction,
+  ModalSubmitInteraction,
   StringSelectMenuInteraction,
 } from 'discord.js'
 import {
+  handleBatchButton,
+  handleBatchChannelSelect,
+  handleBatchModalSubmit,
+  handleBatchStringSelect,
   handleModelSelect,
   handleRemoteModelPageButton,
   handleSessionSelect as handleSessionSelection,
@@ -41,6 +47,29 @@ export const interactionRouter = async (
   ) {
     await handleModelSelectMenu(interaction, dependencies)
     return true
+  }
+
+  if (interaction.isStringSelectMenu()) {
+    const handled = await handleBatchJobSelectMenu(interaction, dependencies)
+    if (handled) return true
+  }
+
+  if (interaction.isChannelSelectMenu()) {
+    const handled = await handleBatchChannelSelectMenu(
+      interaction,
+      dependencies,
+    )
+    if (handled) return true
+  }
+
+  if (interaction.isModalSubmit()) {
+    const handled = await handleBatchModal(interaction, dependencies)
+    if (handled) return true
+  }
+
+  if (interaction.isButton()) {
+    const handled = await handleBatchActionButton(interaction, dependencies)
+    if (handled) return true
   }
 
   // キャンセルボタン
@@ -106,6 +135,34 @@ const handleModelSelectMenu = async (
   dependencies: CommandDependencies,
 ): Promise<void> => {
   return handleModelSelect(interaction, dependencies)
+}
+
+const handleBatchJobSelectMenu = async (
+  interaction: StringSelectMenuInteraction,
+  dependencies: CommandDependencies,
+): Promise<boolean> => {
+  return handleBatchStringSelect(interaction, dependencies)
+}
+
+const handleBatchChannelSelectMenu = async (
+  interaction: ChannelSelectMenuInteraction,
+  dependencies: CommandDependencies,
+): Promise<boolean> => {
+  return handleBatchChannelSelect(interaction, dependencies)
+}
+
+const handleBatchModal = async (
+  interaction: ModalSubmitInteraction,
+  dependencies: CommandDependencies,
+): Promise<boolean> => {
+  return handleBatchModalSubmit(interaction, dependencies)
+}
+
+const handleBatchActionButton = async (
+  interaction: ButtonInteraction,
+  dependencies: CommandDependencies,
+): Promise<boolean> => {
+  return handleBatchButton(interaction, dependencies)
 }
 
 const handleCommandButton = async (

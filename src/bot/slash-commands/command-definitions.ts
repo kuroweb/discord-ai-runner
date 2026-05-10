@@ -1,9 +1,13 @@
 import {
+  InteractionContextType,
+  PermissionFlagsBits,
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
   type SlashCommandOptionsOnlyBuilder,
+  type SlashCommandSubcommandsOnlyBuilder,
 } from 'discord.js'
 import {
+  handleBatch,
   handleClose,
   handleCwd,
   handleDiffPreviewHtml,
@@ -21,7 +25,10 @@ export type CommandScope = 'managed-thread' | 'channel'
 
 export interface CommandDefinition {
   scope: CommandScope[]
-  builder: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder
+  builder:
+    | SlashCommandBuilder
+    | SlashCommandOptionsOnlyBuilder
+    | SlashCommandSubcommandsOnlyBuilder
   handle: (
     interaction: ChatInputCommandInteraction,
     dependencies: CommandDependencies,
@@ -29,6 +36,33 @@ export interface CommandDefinition {
 }
 
 export const commandDefinitions: CommandDefinition[] = [
+  {
+    scope: ['managed-thread', 'channel'],
+    builder: new SlashCommandBuilder()
+      .setName('batch')
+      .setDescription('バッチメッセージジョブを管理します')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+      .setContexts(InteractionContextType.Guild)
+      .addSubcommand((subcommand) =>
+        subcommand.setName('list').setDescription('ジョブ一覧を表示します'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('create')
+          .setDescription('ジョブ作成フローを開始します'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('edit')
+          .setDescription('ジョブ編集フローを開始します'),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('delete')
+          .setDescription('ジョブ削除フローを開始します'),
+      ),
+    handle: handleBatch,
+  },
   {
     scope: ['managed-thread', 'channel'],
     builder: new SlashCommandBuilder()
