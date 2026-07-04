@@ -25,18 +25,6 @@ Discordメンションを起点にスレッドを作成し、AI応答を継続�
 
 AI アダプタに渡すシステムプロンプトを組み立てるモジュール群。方針・ツール説明などはテーマごとの `.ts` に分かれ、`buildSystemPrompt()` が最終文字列を生成する。振る舞いやプロンプト文言の意図は `src/__tests__/` 配下の Vitest で検証する。
 
-## AI エージェント設定
-
-### rulesync で共通管理
-
-`.rulesync/` で編集し、`rulesync generate` で各エージェント向けに展開する。
-
-| 編集正本 | Claude Code | Codex |
-| --- | --- | --- |
-| `.rulesync/rules/` | `.claude/rules` | `.codex/memories` |
-| `.rulesync/rules/overview.md` | `CLAUDE.md` | `AGENTS.md` |
-| `.rulesync/skills/` | `.claude/skills` | `.codex/skills` |
-
 ## 前提環境
 
 - macOS

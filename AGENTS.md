@@ -27,27 +27,20 @@
 - `dist/`: ビルド成果物
 - `logs/`: 実行ログ
 
-## AI エージェント設定
+# エージェント設定
 
-### rulesync で共通管理
+## Rules
 
-`.rulesync/` で編集し、`rulesync generate` で各エージェント向けに展開する。
+- 正本は本ファイル（`AGENTS.md`）。`CLAUDE.md` は `@AGENTS.md` のインポートのみとし、他ツール向けの Rules 生成物は置かない。
+- 変更は `AGENTS.md` を直接編集する。
 
-| 編集正本 | Claude Code | Codex |
-| --- | --- | --- |
-| `.rulesync/rules/` | `.claude/rules` | `.codex/memories` |
-| `.rulesync/rules/overview.md` | `CLAUDE.md` | `AGENTS.md` |
-| `.rulesync/skills/` | `.claude/skills` | `.codex/skills` |
+## Skills
 
-## 開発ルール
+- 正本はリポジトリの `skills/`（`skills/*/SKILL.md`）。エージェントツール向けの配置先（`.agents/skills/` 等）は生成物であり、直接編集しない。
+- 利用前に、リポジトリからプロジェクト配下へ展開する:
 
-- 既存の npm scripts（`dev`, `build`, `lint`, `format:check` など）を優先して利用する。
-- 環境変数は `.env.example` を基準にし、機密情報はコミットしない。
-- スレッド/セッション/モデル/CWD 周りの挙動を変更する場合は、関連コマンド（`/status`, `/session`, `/model`, `/cwd`, `/reset` など）への影響を確認する。
-- `agent-tools` を更新する場合は、Bot 本体との依存関係とビルド導線（`npm run build:agent-tools`）を壊さない。
-- skill は `.rulesync/skills/` を編集正本とし、`rulesync generate` で各エージェント向けディレクトリへ反映する。
+  ```bash
+  gh skill install . --from-local --all --scope project --agent <cursor|claude-code|codex> --force
+  ```
 
-## 運用メモ
-
-- デプロイ後は `git pull --ff-only` → `npm install` → `npm run build` の順で反映する。
-- `launchd` 運用時は plist のパス設定（`WorkingDirectory`, `StandardOutPath`, `StandardErrorPath` など）を実環境に合わせる。
+- `skills/` を編集したら`gh skill install`を再実行すること
