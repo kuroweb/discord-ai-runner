@@ -1,3 +1,4 @@
+export * from './auto-approve'
 export * from './batches'
 export * from './close'
 export * from './cwd'

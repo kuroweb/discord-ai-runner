@@ -9,6 +9,7 @@ interface StatusMetadata {
   cwd?: string
   sessionId?: string
   forceToolExecution?: boolean
+  autoApprove?: boolean
 }
 
 const STATUS_LABEL_WIDTH = 7
@@ -28,6 +29,7 @@ function formatStatusSummary(metadata: StatusMetadata = {}): string {
     formatStatusLine('Model', modelLabel),
     formatStatusLine('Cwd', cwdLabel),
     ...(metadata.forceToolExecution ? [formatStatusLine('Force', 'on')] : []),
+    ...(metadata.autoApprove ? [formatStatusLine('Auto', 'approve on')] : []),
     '```',
   ].join('\n')
 }
@@ -73,6 +75,7 @@ function formatStatus(result: AiResult, metadata: StatusMetadata = {}): string {
     formatStatusLine('Model', modelLabel),
     formatStatusLine('Cwd', cwdLabel),
     ...(metadata.forceToolExecution ? [formatStatusLine('Force', 'on')] : []),
+    ...(metadata.autoApprove ? [formatStatusLine('Auto', 'approve on')] : []),
     formatStatusLine('Session', sessionLabel),
     formatStatusLine(
       'Input',
@@ -88,7 +91,11 @@ function formatStatus(result: AiResult, metadata: StatusMetadata = {}): string {
 
 export async function handleStatus(
   interaction: ChatInputCommandInteraction,
-  { state, adapterName }: Pick<CommandDependencies, 'state' | 'adapterName'>,
+  {
+    state,
+    adapterName,
+    approvalManager,
+  }: Pick<CommandDependencies, 'state' | 'adapterName' | 'approvalManager'>,
 ): Promise<void> {
   const targetId = interaction.channelId
   const isManagedThread = state.isActiveThread(targetId)
@@ -100,6 +107,7 @@ export async function handleStatus(
         model: resolveThreadModel(state, targetId),
         sessionId: state.getSession(targetId),
         forceToolExecution: state.isThreadForceEnabled(targetId),
+        autoApprove: approvalManager.isAutoApproveEnabled(targetId),
       }
     : {
         adapterName,

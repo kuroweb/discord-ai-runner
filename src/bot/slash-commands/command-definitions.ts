@@ -7,6 +7,7 @@ import {
   type SlashCommandSubcommandsOnlyBuilder,
 } from 'discord.js'
 import {
+  handleAutoApprove,
   handleBatch,
   handleClose,
   handleCwd,
@@ -101,6 +102,21 @@ export const commandDefinitions: CommandDefinition[] = [
         'リモートのモデル一覧を表示・選択します。通常チャンネルではデフォルトモデルを設定できます',
       ),
     handle: handleListModelsRemote,
+  },
+  {
+    scope: ['managed-thread'],
+    builder: new SlashCommandBuilder()
+      .setName('auto-approve')
+      .setDescription(
+        'このスレッドのツール実行の自動承認を切り替えます（高リスク操作は常に確認）',
+      )
+      .addBooleanOption((option) =>
+        option
+          .setName('enabled')
+          .setDescription('true で有効、false で無効。未指定なら現在値を表示')
+          .setRequired(false),
+      ),
+    handle: handleAutoApprove,
   },
   {
     scope: ['managed-thread'],

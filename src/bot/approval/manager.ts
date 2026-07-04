@@ -100,11 +100,16 @@ export const createApprovalManager = () => {
     autoApproveChannels.add(channelId)
   }
 
+  const isAutoApproveEnabled = (channelId: string): boolean => {
+    return autoApproveChannels.has(channelId)
+  }
+
   return {
     requestApproval,
     resolveApproval,
     clearAutoApprove,
     enableAutoApprove,
+    isAutoApproveEnabled,
   }
 }
 

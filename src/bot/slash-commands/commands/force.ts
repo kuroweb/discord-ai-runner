@@ -7,7 +7,7 @@ export async function handleForce(
 ): Promise<void> {
   if (adapterName.trim().toLowerCase() !== 'cursor-agent') {
     await interaction.reply({
-      content: `このコマンドは AI_ADAPTER=cursor-agent 専用です（現在: ${adapterName}）。`,
+      content: `このコマンドは AI_ADAPTER=cursor-agent 専用です（現在: ${adapterName}）。承認を省略したい場合は \`/auto-approve\` を使ってください。`,
       flags: ['Ephemeral'],
     })
     return
