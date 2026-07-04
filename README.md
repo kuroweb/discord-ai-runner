@@ -115,24 +115,26 @@ cp .env.example .env
 
 ## launchd 運用
 
-`launchd/` 配下の plist は、`codex` / `claude` を別サービスとして常駐させる運用を想定している。
-その場合は同一リモートを 2 ディレクトリに展開して使う。
+`launchd/` 配下の plist は、`codex` / `claude` / `cursor-agent` を別サービスとして常駐させる運用を想定している。
+その場合は同一リモートを 3 ディレクトリに展開して使う。
 
 ```bash
 git clone <REMOTE_URL> /Users/user/environment/discord-ai-runner-codex
 git clone <REMOTE_URL> /Users/user/environment/discord-ai-runner-claude
+git clone <REMOTE_URL> /Users/user/environment/discord-ai-runner-cursor-agent
 ```
 
-### Discord Bot を常駐（codex / claude）
+### Discord Bot を常駐（codex / claude / cursor-agent）
 
 #### クローン先パスの確認
 
-`launchd/com.discord-ai-runner-codex.plist` と `launchd/com.discord-ai-runner-claude.plist` は、次の絶対パスを前提にしている。
+`launchd/com.discord-ai-runner-codex.plist`、`launchd/com.discord-ai-runner-claude.plist`、`launchd/com.discord-ai-runner-cursor-agent.plist` は、次の絶対パスを前提にしている。
 
 - codex: `/Users/user/environment/discord-ai-runner-codex`
 - claude: `/Users/user/environment/discord-ai-runner-claude`
+- cursor-agent: `/Users/user/environment/discord-ai-runner-cursor-agent`
 
-クローン先ディレクトリ名や配置先を変える場合は、導入前に両 plist の次のキーを実環境に合わせて修正する。
+クローン先ディレクトリ名や配置先を変える場合は、導入前に各 plist の次のキーを実環境に合わせて修正する。
 
 - `UserName`
 - `WorkingDirectory`
@@ -142,7 +144,7 @@ git clone <REMOTE_URL> /Users/user/environment/discord-ai-runner-claude
 構文確認:
 
 ```bash
-plutil -lint launchd/com.discord-ai-runner-codex.plist launchd/com.discord-ai-runner-claude.plist
+plutil -lint launchd/com.discord-ai-runner-codex.plist launchd/com.discord-ai-runner-claude.plist launchd/com.discord-ai-runner-cursor-agent.plist
 ```
 
 #### サービス導入（codex）
@@ -169,11 +171,24 @@ sudo launchctl enable system/com.discord-ai-runner-claude
 sudo launchctl kickstart -k system/com.discord-ai-runner-claude
 ```
 
+#### サービス導入（cursor-agent）
+
+```bash
+mkdir -p /Users/user/environment/discord-ai-runner-cursor-agent/logs
+sudo cp launchd/com.discord-ai-runner-cursor-agent.plist /Library/LaunchDaemons/com.discord-ai-runner-cursor-agent.plist
+sudo chown root:wheel /Library/LaunchDaemons/com.discord-ai-runner-cursor-agent.plist
+sudo chmod 644 /Library/LaunchDaemons/com.discord-ai-runner-cursor-agent.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.discord-ai-runner-cursor-agent.plist
+sudo launchctl enable system/com.discord-ai-runner-cursor-agent
+sudo launchctl kickstart -k system/com.discord-ai-runner-cursor-agent
+```
+
 #### 状態確認
 
 ```bash
 sudo launchctl print system/com.discord-ai-runner-codex | rg "state =|pid =|last exit code"
 sudo launchctl print system/com.discord-ai-runner-claude | rg "state =|pid =|last exit code"
+sudo launchctl print system/com.discord-ai-runner-cursor-agent | rg "state =|pid =|last exit code"
 ```
 
 #### ログ確認
@@ -181,6 +196,7 @@ sudo launchctl print system/com.discord-ai-runner-claude | rg "state =|pid =|las
 ```bash
 tail -f /Users/user/environment/discord-ai-runner-codex/logs/launchd.out.log /Users/user/environment/discord-ai-runner-codex/logs/launchd.err.log
 tail -f /Users/user/environment/discord-ai-runner-claude/logs/launchd.out.log /Users/user/environment/discord-ai-runner-claude/logs/launchd.err.log
+tail -f /Users/user/environment/discord-ai-runner-cursor-agent/logs/launchd.out.log /Users/user/environment/discord-ai-runner-cursor-agent/logs/launchd.err.log
 ```
 
 #### 再起動
@@ -188,6 +204,7 @@ tail -f /Users/user/environment/discord-ai-runner-claude/logs/launchd.out.log /U
 ```bash
 sudo launchctl kickstart -k system/com.discord-ai-runner-codex
 sudo launchctl kickstart -k system/com.discord-ai-runner-claude
+sudo launchctl kickstart -k system/com.discord-ai-runner-cursor-agent
 ```
 
 #### plist 変更反映（codex）
@@ -214,6 +231,18 @@ sudo launchctl enable system/com.discord-ai-runner-claude
 sudo launchctl kickstart -k system/com.discord-ai-runner-claude
 ```
 
+#### plist 変更反映（cursor-agent）
+
+```bash
+sudo launchctl bootout system/com.discord-ai-runner-cursor-agent
+sudo cp launchd/com.discord-ai-runner-cursor-agent.plist /Library/LaunchDaemons/com.discord-ai-runner-cursor-agent.plist
+sudo chown root:wheel /Library/LaunchDaemons/com.discord-ai-runner-cursor-agent.plist
+sudo chmod 644 /Library/LaunchDaemons/com.discord-ai-runner-cursor-agent.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.discord-ai-runner-cursor-agent.plist
+sudo launchctl enable system/com.discord-ai-runner-cursor-agent
+sudo launchctl kickstart -k system/com.discord-ai-runner-cursor-agent
+```
+
 #### 停止 / 無効化
 
 ```bash
@@ -221,6 +250,8 @@ sudo launchctl bootout system/com.discord-ai-runner-codex
 sudo launchctl disable system/com.discord-ai-runner-codex
 sudo launchctl bootout system/com.discord-ai-runner-claude
 sudo launchctl disable system/com.discord-ai-runner-claude
+sudo launchctl bootout system/com.discord-ai-runner-cursor-agent
+sudo launchctl disable system/com.discord-ai-runner-cursor-agent
 ```
 
 ### rcloneでGoogle Driveをマウント
@@ -271,8 +302,14 @@ git pull --ff-only
 npm install
 npm run build
 
+cd /Users/user/environment/discord-ai-runner-cursor-agent
+git pull --ff-only
+npm install
+npm run build
+
 sudo launchctl kickstart -k system/com.discord-ai-runner-codex
 sudo launchctl kickstart -k system/com.discord-ai-runner-claude
+sudo launchctl kickstart -k system/com.discord-ai-runner-cursor-agent
 ```
 
 ## トラブルシュート
