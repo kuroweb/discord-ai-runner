@@ -1,3 +1,5 @@
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -112,6 +114,22 @@ async function fetchOpenAIRemoteModelIds(
     .sort()
 }
 
+const execFileAsync = promisify(execFile)
+
+async function fetchCursorAgentModelIds(): Promise<string[]> {
+  const { stdout } = await execFileAsync('cursor-agent', ['--list-models'], {
+    timeout: 30_000,
+  })
+
+  // 出力形式: 見出し行のあと "id - 表示名" が並ぶ
+  return stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.includes(' - '))
+    .map((line) => line.split(' - ')[0].trim())
+    .filter(Boolean)
+}
+
 async function fetchRemoteModelIds(): Promise<string[]> {
   const adapterName = (process.env.AI_ADAPTER ?? 'claude').trim().toLowerCase()
   if (adapterName === 'claude') {
@@ -120,6 +138,10 @@ async function fetchRemoteModelIds(): Promise<string[]> {
 
   if (adapterName === 'codex') {
     return fetchOpenAIRemoteModelIds(CODEX_SELECTOR_MODEL_PREFIXES)
+  }
+
+  if (adapterName === 'cursor-agent') {
+    return fetchCursorAgentModelIds()
   }
 
   return fetchOpenAIRemoteModelIds()

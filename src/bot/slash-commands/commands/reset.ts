@@ -9,6 +9,7 @@ export async function handleReset(
   scheduler.abort(threadId)
   state.clearSession(threadId)
   state.clearThreadCwd(threadId)
+  state.setThreadForce(threadId, false)
   approvalManager.clearAutoApprove(threadId)
   state.save()
   await interaction.reply('セッションと作業ディレクトリをリセットしました。')

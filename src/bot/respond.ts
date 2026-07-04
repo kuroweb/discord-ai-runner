@@ -90,6 +90,7 @@ export const respond = async (
     const result = await adapter.run(input, sessionId, {
       cwd: resolveThreadCwd(state, sessionKey),
       model: resolveThreadModel(state, sessionKey),
+      forceToolExecution: state.isThreadForceEnabled(sessionKey),
       attachmentOutputDir,
       signal: abortController.signal,
       onChunk: (text) => {

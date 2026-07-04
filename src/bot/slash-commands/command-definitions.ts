@@ -12,6 +12,7 @@ import {
   handleCwd,
   handleDiffPreviewHtml,
   handleDiffPreviewMarkdown,
+  handleForce,
   handleListModelsRemote,
   handleReset,
   handleSession,
@@ -100,6 +101,21 @@ export const commandDefinitions: CommandDefinition[] = [
         'リモートのモデル一覧を表示・選択します。通常チャンネルではデフォルトモデルを設定できます',
       ),
     handle: handleListModelsRemote,
+  },
+  {
+    scope: ['managed-thread'],
+    builder: new SlashCommandBuilder()
+      .setName('force')
+      .setDescription(
+        'このスレッドのツール実行の承認スキップ（cursor-agent の --force）を切り替えます',
+      )
+      .addBooleanOption((option) =>
+        option
+          .setName('enabled')
+          .setDescription('true で有効、false で無効。未指定なら現在値を表示')
+          .setRequired(false),
+      ),
+    handle: handleForce,
   },
   {
     scope: ['managed-thread'],

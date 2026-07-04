@@ -60,6 +60,8 @@ export interface AiRunOptions {
   cwd: string
   model?: string
   attachmentOutputDir?: string
+  /** 承認をスキップしてツール実行を許可する（cursor-agent の --force 相当） */
+  forceToolExecution?: boolean
   requestApproval?: (
     request: ToolApprovalRequest,
   ) => Promise<ToolApprovalDecision>

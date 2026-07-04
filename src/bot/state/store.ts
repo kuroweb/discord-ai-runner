@@ -24,6 +24,8 @@ export const createBotState = (stateFile: string) => {
   const channelModels = new Map<string, string>()
   const threadChannelIds = new Map<string, string>()
   const threadUsage = new Map<string, AiResult>()
+  // 承認スキップ（--force 相当）は一時的な緩和なので永続化せず、再起動で安全側に戻す
+  const threadForce = new Set<string>()
   const batchJobs = new Map<string, BatchJob>()
 
   const load = (): void => {
@@ -236,6 +238,19 @@ export const createBotState = (stateFile: string) => {
     threadModels.delete(threadId)
     threadChannelIds.delete(threadId)
     threadUsage.delete(threadId)
+    threadForce.delete(threadId)
+  }
+
+  const isThreadForceEnabled = (threadId: string): boolean => {
+    return threadForce.has(threadId)
+  }
+
+  const setThreadForce = (threadId: string, enabled: boolean): void => {
+    if (enabled) {
+      threadForce.add(threadId)
+    } else {
+      threadForce.delete(threadId)
+    }
   }
 
   const getUsage = (threadId: string): AiResult | undefined => {
@@ -269,6 +284,8 @@ export const createBotState = (stateFile: string) => {
     getThreadChannelId,
     setThreadChannelId,
     closeThread,
+    isThreadForceEnabled,
+    setThreadForce,
     getUsage,
     setUsage,
     listBatchJobs,

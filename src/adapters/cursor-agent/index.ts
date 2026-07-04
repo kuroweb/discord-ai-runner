@@ -1,0 +1,1 @@
+export { createCursorAgentAdapter } from './adapter'

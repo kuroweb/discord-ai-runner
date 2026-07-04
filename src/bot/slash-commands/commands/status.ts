@@ -8,6 +8,7 @@ interface StatusMetadata {
   model?: string
   cwd?: string
   sessionId?: string
+  forceToolExecution?: boolean
 }
 
 const STATUS_LABEL_WIDTH = 7
@@ -26,6 +27,7 @@ function formatStatusSummary(metadata: StatusMetadata = {}): string {
     formatStatusLine('Adapter', adapterLabel),
     formatStatusLine('Model', modelLabel),
     formatStatusLine('Cwd', cwdLabel),
+    ...(metadata.forceToolExecution ? [formatStatusLine('Force', 'on')] : []),
     '```',
   ].join('\n')
 }
@@ -70,6 +72,7 @@ function formatStatus(result: AiResult, metadata: StatusMetadata = {}): string {
     formatStatusLine('Adapter', adapterLabel),
     formatStatusLine('Model', modelLabel),
     formatStatusLine('Cwd', cwdLabel),
+    ...(metadata.forceToolExecution ? [formatStatusLine('Force', 'on')] : []),
     formatStatusLine('Session', sessionLabel),
     formatStatusLine(
       'Input',
@@ -96,6 +99,7 @@ export async function handleStatus(
         cwd: resolveThreadCwd(state, targetId),
         model: resolveThreadModel(state, targetId),
         sessionId: state.getSession(targetId),
+        forceToolExecution: state.isThreadForceEnabled(targetId),
       }
     : {
         adapterName,

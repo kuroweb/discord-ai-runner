@@ -66,13 +66,14 @@ const rejectPdfAttachment = async (
   message: Message,
   adapterName: string,
 ): Promise<boolean> => {
-  const rejectsPdf = adapterName.trim().toLowerCase() === 'codex'
+  const normalized = adapterName.trim().toLowerCase()
+  const rejectsPdf = normalized === 'codex' || normalized === 'cursor-agent'
   if (!rejectsPdf || !hasPdfAttachment(message)) {
     return false
   }
 
   await message.reply(
-    'Codex は現在 PDF 添付入力に対応していません。PDF なしで送るか、画像へ変換して送ってください。',
+    `${normalized} は現在 PDF 添付入力に対応していません。PDF なしで送るか、画像へ変換して送ってください。`,
   )
 
   return true
