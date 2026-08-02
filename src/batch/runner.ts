@@ -12,26 +12,35 @@ export function createBatchRunner(baseCtx: BatchRunnerContext) {
   const runningJobs = new Set<string>()
   let isStarted = false
 
+  async function executeJob(job: BatchJob, reason: 'scheduled' | 'missed'): Promise<void> {
+    if (runningJobs.has(job.id)) {
+      console.warn(`[batch] ジョブ重複スキップ: ${job.id}`)
+      return
+    }
+    runningJobs.add(job.id)
+    const suffix = reason === 'missed' ? ' (missed 補完)' : ''
+    console.log(`[batch] ジョブ開始: ${job.id}${suffix}`)
+    try {
+      await run(job)
+      console.log(`[batch] ジョブ完了: ${job.id}`)
+    } catch (error) {
+      console.error(`[batch] ジョブ失敗: ${job.id}`, error)
+    } finally {
+      runningJobs.delete(job.id)
+    }
+  }
+
   function add(job: BatchJob): void {
     if (tasks.has(job.id)) {
       console.warn(`[batch] ジョブ "${job.id}" は既に登録済みです`)
       return
     }
     const task = cron.createTask(job.cron, async () => {
-      if (runningJobs.has(job.id)) {
-        console.warn(`[batch] ジョブ重複スキップ: ${job.id}`)
-        return
-      }
-      runningJobs.add(job.id)
-      console.log(`[batch] ジョブ開始: ${job.id}`)
-      try {
-        await run(job)
-        console.log(`[batch] ジョブ完了: ${job.id}`)
-      } catch (error) {
-        console.error(`[batch] ジョブ失敗: ${job.id}`, error)
-      } finally {
-        runningJobs.delete(job.id)
-      }
+      await executeJob(job, 'scheduled')
+    })
+    task.on('execution:missed', async () => {
+      console.warn(`[batch] missed execution を補完実行: ${job.id}`)
+      await executeJob(job, 'missed')
     })
     tasks.set(job.id, task)
     if (isStarted) {
